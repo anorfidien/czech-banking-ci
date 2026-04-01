@@ -1,0 +1,66 @@
+# ── Industry-wide Czech Banking & Finance RSS Feeds ──────────────
+# These feeds are scanned for ALL competitors. Articles are matched
+# to competitors by name/alias mentions in title + summary.
+
+industry_feeds:
+
+  # ── Regulator (highest priority) ─────────────────────────────
+  - name: "ČNB — Tiskové zprávy"
+    url: "https://www.cnb.cz/cs/.content/rss-feed/rss-feed_tz.rss"
+    category: regulation
+    priority: critical
+
+  - name: "ČNB — Blog"
+    url: "https://www.cnb.cz/cs/.content/rss-feed/rss-feed_00023.rss"
+    category: regulation
+    priority: high
+
+  # ── Major financial dailies ──────────────────────────────────
+  - name: "Hospodářské noviny"
+    url: "https://hn.cz/?m=rss"
+    category: business
+    priority: high
+
+  - name: "E15.cz"
+    url: "https://www.e15.cz/?format=feed&type=rss"
+    category: business
+    priority: high
+
+  # ── Financial data & markets ─────────────────────────────────
+  - name: "Kurzy.cz — Ekonomika"
+    url: "https://www.kurzy.cz/zpravy/util/forext.dat?type=rss&col=ptEkonomika"
+    category: markets
+    priority: high
+
+  - name: "Kurzy.cz — Osobní finance"
+    url: "https://www.kurzy.cz/zpravy/util/forext.dat?type=rss&col=wzOsFinance"
+    category: personal_finance
+    priority: medium
+
+  - name: "Patria.cz"
+    url: "https://www.patria.cz/rss.html"
+    category: markets
+    priority: high
+
+  # ── Personal finance & banking products ──────────────────────
+  - name: "Měšec.cz — Články"
+    url: "https://www.mesec.cz/rss/clanky/"
+    category: personal_finance
+    priority: high
+
+  - name: "Měšec.cz — Aktuality"
+    url: "https://www.mesec.cz/rss/aktuality/"
+    category: personal_finance
+    priority: medium
+
+  # ── Fintech & analysis ───────────────────────────────────────
+  - name: "Roklen24"
+    url: "https://roklen24.cz/feed/"
+    category: fintech
+    priority: high
+
+  # ── Wire service ─────────────────────────────────────────────
+  - name: "ČTK — Ekonomika"
+    url: "https://www.ceskenoviny.cz/sluzby/rss/ekonomika.php"
+    category: wire
+    priority: medium

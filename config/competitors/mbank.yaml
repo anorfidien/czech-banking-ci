@@ -1,0 +1,18 @@
+id: mbank
+name: mBank
+parent_group: Commerzbank
+tier: 2
+sources:
+  ares_ico: '27943445'
+  careers_url: https://www.mbank.cz/o-nas/kariera/
+  careers_search_name: mBank
+  pricing_url: https://www.mbank.cz/informace-k-produktum/sazebnik/
+  website_urls:
+  - https://www.mbank.cz/
+  news_search_name: mBank
+  news_rss: https://news.google.com/rss/search?q=mBank+%C4%8Cesko&hl=cs&gl=CZ&ceid=CZ:cs
+monitoring:
+  priority: medium
+aliases:
+- mBank
+- mBanka

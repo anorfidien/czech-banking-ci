@@ -1,0 +1,19 @@
+id: air_bank
+name: Air Bank
+parent_group: PPF Group
+tier: 2
+sources:
+  ares_ico: '29045371'
+  careers_url: https://www.airbank.cz/kariera/
+  careers_search_name: Air Bank
+  pricing_url: https://www.airbank.cz/sazebnik/
+  website_urls:
+  - https://www.airbank.cz/
+  news_search_name: Air Bank
+  news_rss: https://news.google.com/rss/search?q=Air+Bank+%C4%8Cesko&hl=cs&gl=CZ&ceid=CZ:cs
+monitoring:
+  priority: medium
+aliases:
+- Air Bank
+- AirBank
+- PPF

@@ -1,0 +1,20 @@
+id: csob
+name: ČSOB
+parent_group: KBC Group
+tier: 1
+sources:
+  ares_ico: '00001350'
+  careers_url: https://www.csob.cz/portal/lide/kariera
+  careers_search_name: ČSOB
+  pricing_url: https://www.csob.cz/portal/lide/sazebniky-a-uroky
+  website_urls:
+  - https://www.csob.cz/portal/lide
+  news_search_name: ČSOB
+  news_rss: https://news.google.com/rss/search?q=%C4%8CSOB&hl=cs&gl=CZ&ceid=CZ:cs
+monitoring:
+  priority: high
+aliases:
+- ČSOB
+- CSOB
+- Československá obchodní banka
+- KBC

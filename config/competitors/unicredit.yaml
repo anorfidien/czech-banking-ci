@@ -1,0 +1,18 @@
+id: unicredit
+name: UniCredit Bank
+parent_group: UniCredit
+tier: 2
+sources:
+  ares_ico: '64948242'
+  careers_url: https://www.unicreditbank.cz/cs/o-bance/kariera.html
+  careers_search_name: UniCredit Bank
+  pricing_url: https://www.unicreditbank.cz/cs/sazebniky.html
+  website_urls:
+  - https://www.unicreditbank.cz/cs/obcane.html
+  news_search_name: UniCredit Bank
+  news_rss: https://news.google.com/rss/search?q=UniCredit+Bank+%C4%8Cesko&hl=cs&gl=CZ&ceid=CZ:cs
+monitoring:
+  priority: medium
+aliases:
+- UniCredit
+- UniCredit Bank

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-m", "flask", "--app", "src.api:create_app()", "run", "--port", "5000"],
+      "port": 5000
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "dashboard"],
+      "port": 3000
+    }
+  ]
+}

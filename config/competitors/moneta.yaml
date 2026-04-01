@@ -1,0 +1,19 @@
+id: moneta
+name: Moneta Money Bank
+parent_group: null
+tier: 2
+sources:
+  ares_ico: '25672720'
+  careers_url: https://www.moneta.cz/kariera
+  careers_search_name: Moneta Money Bank
+  pricing_url: https://www.moneta.cz/sazebniky-a-dokumenty
+  website_urls:
+  - https://www.moneta.cz/
+  news_search_name: Moneta Money Bank
+  news_rss: https://news.google.com/rss/search?q=Moneta+Money+Bank&hl=cs&gl=CZ&ceid=CZ:cs
+monitoring:
+  priority: medium
+aliases:
+- Moneta
+- Moneta Money Bank
+- MONETA

@@ -1,0 +1,14 @@
+id: revolut_cz
+name: Revolut
+parent_group: Revolut Ltd
+tier: 3
+sources:
+  website_urls:
+  - https://www.revolut.com/cs-CZ/
+  - https://www.revolut.com/cs-CZ/pricing/
+  news_search_name: Revolut Česko
+  news_rss: https://news.google.com/rss/search?q=Revolut+%C4%8Cesko&hl=cs&gl=CZ&ceid=CZ:cs
+monitoring:
+  priority: medium
+aliases:
+- Revolut

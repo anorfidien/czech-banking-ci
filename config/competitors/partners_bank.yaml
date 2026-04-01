@@ -1,0 +1,16 @@
+id: partners_bank
+name: Partners Bank
+parent_group: Partners Financial Services
+tier: 3
+sources:
+  ares_ico: '14893649'
+  website_urls:
+  - https://www.partnersbank.cz/
+  news_search_name: Partners Bank
+  news_rss: https://news.google.com/rss/search?q=Partners+Bank+%C4%8Cesko&hl=cs&gl=CZ&ceid=CZ:cs
+monitoring:
+  priority: medium
+aliases:
+- Partners Bank
+- Partners Banka
+- Partners Financial
