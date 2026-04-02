@@ -30,7 +30,7 @@ export default function Signals() {
     let result = signals;
     if (filterSource) result = result.filter((s) => s.source === filterSource);
     if (filterCompetitor) result = result.filter((s) => s.competitor_id === filterCompetitor);
-    if (filterSeverity) result = result.filter((s) => s.severity >= Number(filterSeverity));
+    if (filterSeverity) result = result.filter((s) => s.severity <= Number(filterSeverity));
     if (filterSegment) result = result.filter((s) => s.segment === filterSegment);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -106,9 +106,9 @@ export default function Signals() {
           value={filterSeverity}
           onChange={setFilterSeverity}
           options={[
-            { value: '2', label: 'Low+' },
-            { value: '3', label: 'Medium+' },
-            { value: '4', label: 'High' },
+            { value: '1', label: 'High' },
+            { value: '2', label: 'Medium+' },
+            { value: '3', label: 'All' },
           ]}
         />
         <FilterSelect

@@ -10,9 +10,9 @@ import SeverityBadge from '../components/SeverityBadge';
 import { cn, SEVERITY_COLORS, SOURCE_LABELS, formatDateTime, timeAgo } from '../utils';
 
 const PRIORITY_CONFIG: Record<number, { color: string; label: string }> = {
-  2: { color: '#10b981', label: 'Low' },
-  3: { color: '#f59e0b', label: 'Medium' },
-  4: { color: '#ef4444', label: 'High' },
+  1: { color: '#ef4444', label: 'High' },
+  2: { color: '#f59e0b', label: 'Medium' },
+  3: { color: '#10b981', label: 'Low' },
 };
 
 export default function Overview() {

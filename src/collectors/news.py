@@ -148,9 +148,9 @@ class NewsCollector(BaseCollector):
 
             score, tags, reason = self._analyze_article(title, summary)
 
-            # Boost score for critical/high-priority feeds
-            if feed_priority == "critical" and score < 4:
-                score = min(score + 1, 5)
+            # Boost score for critical/high-priority feeds (lower number = higher priority)
+            if feed_priority == "critical" and score > 1:
+                score = max(score - 1, 1)
                 reason = f"{reason}; boosted by {feed_name} (critical source)"
 
             # Add feed source tag
@@ -189,13 +189,13 @@ class NewsCollector(BaseCollector):
         med_hits = [kw for kw in MEDIUM_KEYWORDS if kw in text]
 
         if high_hits:
-            score = 4
+            score = 1
             reason = f"High: matched [{', '.join(high_hits)}]"
         elif med_hits:
-            score = 3
+            score = 2
             reason = f"Medium: matched [{', '.join(med_hits)}]"
         else:
-            score = 2
+            score = 3
             reason = "Low: no priority keywords matched"
 
         for category, keywords in CATEGORY_MAP.items():
