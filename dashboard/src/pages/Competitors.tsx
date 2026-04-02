@@ -24,21 +24,21 @@ type MetricKey = 'signal_count' | 'avg_severity' | 'tier';
 
 const METRIC_LABELS: Record<MetricKey, string> = {
   signal_count: 'Signal Count',
-  avg_severity: 'Avg Severity',
+  avg_severity: 'Avg Priority (1=High, 3=Low)',
   tier: 'Market Tier',
 };
 
 const METRIC_DOMAINS: Record<MetricKey, [number, number]> = {
   signal_count: [0, 100],
-  avg_severity: [0, 5],
+  avg_severity: [0, 4],
   tier: [0, 4],
 };
 
-// Stable per-competitor colors
-const COMP_COLORS = [
-  '#3b82f6', '#10b981', '#ef4444', '#06b6d4', '#6366f1',
-  '#eab308', '#f43f5e', '#a855f7', '#22c55e', '#f97316', '#00a19a',
-];
+const BANK_COLORS: Record<string, string> = {
+  raiffeisenbank: '#eab308', ceska_sporitelna: '#3b82f6', csob: '#10b981',
+  komercni_banka: '#ef4444', moneta: '#a855f7', fio_banka: '#22c55e', unicredit: '#f97316',
+  air_bank: '#06b6d4', mbank: '#f43f5e', partners_bank: '#00a19a', revolut_cz: '#6366f1',
+};
 
 export default function Competitors() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -56,7 +56,7 @@ export default function Competitors() {
     () =>
       competitors
         .filter((c) => selectedTiers.includes(c.tier))
-        .map((c, i) => ({ ...c, color: COMP_COLORS[i % COMP_COLORS.length] })),
+        .map((c) => ({ ...c, color: BANK_COLORS[c.id] || '#94a3b8' })),
     [competitors, selectedTiers]
   );
 
@@ -176,7 +176,7 @@ export default function Competitors() {
                     tickLine={{ stroke: '#e2e8f0' }}
                     label={{ value: METRIC_LABELS[yAxis], angle: -90, position: 'left', offset: 40, fontSize: 9, fontWeight: 900, fill: '#64748b' }}
                   />
-                  <ZAxis range={[400, 400]} />
+                  <ZAxis range={[900, 900]} />
                   <Tooltip
                     cursor={{ strokeDasharray: '3 3', stroke: '#e2e8f0' }}
                     content={({ active, payload }) => {
@@ -187,8 +187,8 @@ export default function Competitors() {
                           <div className="text-slate-900 font-black text-xs uppercase tracking-tight mb-2 border-b border-slate-100 pb-2">{d.name}</div>
                           <div className="space-y-1 text-[10px] font-bold">
                             <div className="flex justify-between gap-8"><span className="text-slate-400">Signals</span><span className="text-slate-900">{d.signal_count}</span></div>
-                            <div className="flex justify-between gap-8"><span className="text-slate-400">Avg Severity</span><span className="text-slate-900">{d.avg_severity}</span></div>
-                            <div className="flex justify-between gap-8"><span className="text-slate-400">Tier</span><span className="text-slate-900">{d.tier}</span></div>
+                            <div className="flex justify-between gap-8"><span className="text-slate-400">Avg Priority</span><span className="text-slate-900">{d.avg_severity ? `${d.avg_severity.toFixed(1)} (${d.avg_severity <= 1.5 ? 'High' : d.avg_severity <= 2.5 ? 'Medium' : 'Low'})` : '—'}</span></div>
+                            <div className="flex justify-between gap-8"><span className="text-slate-400">Tier</span><span className="text-slate-900">T{d.tier}</span></div>
                           </div>
                         </div>
                       );
@@ -210,8 +210,8 @@ export default function Competitors() {
                         const { x, y, value } = props;
                         if (!x || !y) return null;
                         return (
-                          <text x={x} y={y + 16} textAnchor="middle" className="text-[9px] font-black text-slate-900 pointer-events-none uppercase tracking-tighter">
-                            {(value as string).split(' ')[0]}
+                          <text x={x} y={y + 22} textAnchor="middle" className="text-[8px] font-black text-slate-700 pointer-events-none uppercase tracking-tighter">
+                            {value as string}
                           </text>
                         );
                       }}
@@ -243,7 +243,7 @@ export default function Competitors() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">{TIER_INFO[selected.tier]?.label}</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <StatBox label="Signals" value={selected.signal_count} />
-                    <StatBox label="Avg Severity" value={selected.avg_severity?.toFixed(1) || '—'} />
+                    <StatBox label="Avg Priority" value={selected.avg_severity ? `${selected.avg_severity.toFixed(1)} (${selected.avg_severity <= 1.5 ? 'High' : selected.avg_severity <= 2.5 ? 'Medium' : 'Low'})` : '—'} />
                     <StatBox label="Tier" value={`T${selected.tier}`} />
                     <StatBox label="ICO" value={selected.ico || '—'} />
                     {selected.parent_group && <StatBox label="Parent" value={selected.parent_group} />}
@@ -274,7 +274,7 @@ export default function Competitors() {
                 <th className="px-6 py-3 font-black uppercase tracking-widest text-center">Tier</th>
                 <th className="px-6 py-3 font-black uppercase tracking-widest text-center">ICO</th>
                 <th className="px-6 py-3 font-black uppercase tracking-widest text-right">Signals</th>
-                <th className="px-6 py-3 font-black uppercase tracking-widest text-right">Avg Sev</th>
+                <th className="px-6 py-3 font-black uppercase tracking-widest text-right">Avg Priority</th>
               </tr>
             </thead>
             <tbody>
