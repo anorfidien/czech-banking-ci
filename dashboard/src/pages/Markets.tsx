@@ -262,12 +262,14 @@ export default function Markets() {
             </div>
             <div className="flex items-center gap-3">
               {isLoanMode && !loanDrillLevel && (
-                <span className="text-[9px] font-bold text-slate-400 uppercase">Click a bank below to drill down</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase">Market share · click a bank below to drill down</span>
               )}
-              <div className="flex gap-1 bg-slate-100 rounded p-1">
-                <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
-                <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
-              </div>
+              {!isLoanMode && (
+                <div className="flex gap-1 bg-slate-100 rounded p-1">
+                  <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
+                  <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -313,6 +315,22 @@ export default function Markets() {
               )
             ) : chartData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-[10px] font-black uppercase tracking-widest text-slate-300">No data</div>
+            ) : isLoanMode ? (
+              /* LOANS: stacked area — market share view */
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
+                  <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60} tickFormatter={fmtVal} />
+                  <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    labelFormatter={(d) => fmtQ(String(d))}
+                    formatter={(value: any, name: any) => [`${Number(value).toLocaleString('cs-CZ')} mio CZK`, BANK_LABELS[name] || name]} />
+                  <Legend formatter={(v: string) => <span className="text-[9px] font-bold uppercase">{BANK_LABELS[v] || v}</span>} />
+                  {selectedBanks.map((bankId) => (
+                    <Area key={bankId} type="monotone" dataKey={bankId} stackId="1" stroke={BANK_COLORS[bankId]} fill={BANK_COLORS[bankId]} fillOpacity={0.75} />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
             ) : chartMode === 'line' ? (
               /* COMPARISON: line chart */
               <ResponsiveContainer width="100%" height="100%">
