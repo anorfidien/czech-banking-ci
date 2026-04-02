@@ -28,3 +28,4 @@ config/bb_values.xlsx
 # Env
 .env
 .env.local
+dashboard/data/
