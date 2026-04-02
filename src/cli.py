@@ -96,7 +96,7 @@ def init_db(ctx):
 
 
 @cli.command()
-@click.option("--source", "-s", type=click.Choice(["ares", "jobs", "news", "all"]), default="all")
+@click.option("--source", "-s", type=click.Choice(["ares", "jobs", "news", "market", "all"]), default="all")
 @click.option("--competitor", "-c", default="all", help="Competitor ID or 'all'")
 @click.pass_context
 def collect(ctx, source, competitor):
@@ -122,6 +122,16 @@ def collect(ctx, source, competitor):
     if source in ("news", "all"):
         from src.collectors.news import NewsCollector
         collectors_to_run.append(NewsCollector(db, config_dir))
+
+    # Market data collector runs separately (no per-competitor loop)
+    if source in ("market", "all"):
+        from src.collectors.market_data import MarketDataCollector
+        console.print("\n[bold]Running market_data collector...[/bold]")
+        with MarketDataCollector(db, config_dir) as mkt:
+            mkt_results = mkt.run()
+        console.print(f"  [green]{mkt_results.get('new_signals', 0)} data points collected[/green]")
+        if mkt_results.get("errors"):
+            console.print(f"  [red]{mkt_results['errors']} errors[/red]")
 
     total_signals = 0
     for collector in collectors_to_run:

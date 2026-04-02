@@ -52,4 +52,4 @@ export interface Summary {
   timeline: { date: string; count: number }[];
 }
 
-export type Page = 'overview' | 'signals' | 'competitors' | 'status';
+export type Page = 'overview' | 'signals' | 'competitors' | 'markets' | 'status';

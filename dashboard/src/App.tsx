@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import Overview from './pages/Overview';
 import Signals from './pages/Signals';
 import Competitors from './pages/Competitors';
+import Markets from './pages/Markets';
 import Status from './pages/Status';
 import type { Page } from './types';
 
@@ -14,6 +15,7 @@ export default function App() {
       {page === 'overview' && <Overview />}
       {page === 'signals' && <Signals />}
       {page === 'competitors' && <Competitors />}
+      {page === 'markets' && <Markets />}
       {page === 'status' && <Status />}
     </Layout>
   );

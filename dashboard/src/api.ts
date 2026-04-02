@@ -28,4 +28,14 @@ export const api = {
   getCompetitors: () => get<Competitor[]>(`${BASE}/competitors`),
 
   getStatus: () => get<CollectorRun[]>(`${BASE}/status`),
+
+  getMetrics: (params?: {
+    series_id?: string;
+    category?: string;
+    competitor?: string;
+    since?: string;
+    until?: string;
+  }) => get<any[]>(`${BASE}/metrics`, params),
+
+  getMetricsSeries: () => get<any[]>(`${BASE}/metrics/series`),
 };

@@ -45,6 +45,24 @@ CREATE TABLE IF NOT EXISTS snapshots (
 CREATE INDEX IF NOT EXISTS idx_snapshots_lookup
     ON snapshots(competitor_id, source, snapshot_key);
 
+CREATE TABLE IF NOT EXISTS metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,           -- 'arad', 'czso', etc.
+    series_id TEXT NOT NULL,        -- e.g. 'ARAD:IRSTCPMD', 'CZSO:010022'
+    series_name TEXT NOT NULL,      -- human label
+    category TEXT NOT NULL,         -- 'rates', 'loans', 'macro', 'banking'
+    date TEXT NOT NULL,             -- YYYY-MM-DD
+    value REAL NOT NULL,
+    unit TEXT,                      -- '%', 'mil CZK', 'index'
+    competitor_id TEXT,             -- NULL = sector-wide
+    captured_at TEXT NOT NULL,
+    UNIQUE(series_id, date, competitor_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_metrics_series ON metrics(series_id, date);
+CREATE INDEX IF NOT EXISTS idx_metrics_category ON metrics(category);
+CREATE INDEX IF NOT EXISTS idx_metrics_competitor ON metrics(competitor_id);
+
 CREATE TABLE IF NOT EXISTS collector_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     collector_name TEXT NOT NULL,

@@ -199,3 +199,59 @@ class Database:
                LIMIT 50"""
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # ── Metrics ─────────────────────────────────────────────────
+
+    def upsert_metric(
+        self, source: str, series_id: str, series_name: str,
+        category: str, date: str, value: float,
+        unit: str | None = None, competitor_id: str | None = None,
+    ) -> bool:
+        cursor = self.conn.execute(
+            """INSERT OR REPLACE INTO metrics
+               (source, series_id, series_name, category, date, value, unit, competitor_id, captured_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (source, series_id, series_name, category, date, value,
+             unit, competitor_id, datetime.utcnow().isoformat()),
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def get_metrics(
+        self,
+        series_id: str | None = None,
+        category: str | None = None,
+        competitor_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> list[dict]:
+        query = "SELECT * FROM metrics WHERE 1=1"
+        params: list = []
+        if series_id:
+            query += " AND series_id = ?"
+            params.append(series_id)
+        if category:
+            query += " AND category = ?"
+            params.append(category)
+        if competitor_id:
+            query += " AND competitor_id = ?"
+            params.append(competitor_id)
+        if since:
+            query += " AND date >= ?"
+            params.append(since)
+        if until:
+            query += " AND date <= ?"
+            params.append(until)
+        query += " ORDER BY date ASC"
+        rows = self.conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_available_series(self) -> list[dict]:
+        rows = self.conn.execute(
+            """SELECT series_id, series_name, category, unit, competitor_id,
+                      COUNT(*) as points, MIN(date) as first_date, MAX(date) as last_date
+               FROM metrics
+               GROUP BY series_id, competitor_id
+               ORDER BY category, series_name"""
+        ).fetchall()
+        return [dict(r) for r in rows]

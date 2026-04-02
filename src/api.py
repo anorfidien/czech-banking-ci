@@ -131,6 +131,29 @@ def create_app(db_path: str | None = None) -> Flask:
         finally:
             db.close()
 
+    @app.route("/api/metrics")
+    def api_metrics():
+        db = get_db()
+        try:
+            metrics = db.get_metrics(
+                series_id=request.args.get("series_id"),
+                category=request.args.get("category"),
+                competitor_id=request.args.get("competitor"),
+                since=request.args.get("since"),
+                until=request.args.get("until"),
+            )
+            return jsonify(metrics)
+        finally:
+            db.close()
+
+    @app.route("/api/metrics/series")
+    def api_metrics_series():
+        db = get_db()
+        try:
+            return jsonify(db.get_available_series())
+        finally:
+            db.close()
+
     # ── Static file serving (production) ─────────────────────
 
     @app.route("/", defaults={"path": ""})
