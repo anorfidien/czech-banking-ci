@@ -3,7 +3,7 @@ import { Search, ExternalLink, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { api } from '../api';
 import type { Signal } from '../types';
 import SeverityBadge from '../components/SeverityBadge';
-import { cn, SOURCE_LABELS, formatDateTime } from '../utils';
+import { cn, SOURCE_LABELS, SEVERITY_COLORS, formatDateTime } from '../utils';
 
 export default function Signals() {
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -240,38 +240,40 @@ function SignalRow({
         <tr className="bg-slate-50/50">
           <td colSpan={8} className="px-6 py-5">
             <div className="grid grid-cols-12 gap-6 text-[10px]">
-              <div className="col-span-8">
-                <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Content</div>
-                <p className="text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">
-                  {sig.content || '—'}
-                </p>
+              <div className="col-span-8 space-y-3">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Content</div>
+                  <p className="text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">
+                    {sig.content || '—'}
+                  </p>
+                </div>
+                {sig.url && (
+                  <a
+                    href={sig.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline flex items-center gap-1 font-bold truncate text-[10px]"
+                  >
+                    <ExternalLink size={10} /> {sig.url}
+                  </a>
+                )}
                 {sig.change_summary && (
-                  <div className="mt-3">
+                  <div>
                     <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Change Summary</div>
                     <p className="text-slate-600 font-mono text-[10px]">{sig.change_summary}</p>
                   </div>
                 )}
               </div>
               <div className="col-span-4 space-y-3">
-                {(sig.metadata as any)?.priority_reason && (
-                  <div>
-                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Priority Reason</div>
-                    <p className="text-[10px] font-bold text-slate-600">{(sig.metadata as any).priority_reason}</p>
-                  </div>
-                )}
-                {sig.url && (
-                  <div>
-                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Source URL</div>
-                    <a
-                      href={sig.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center gap-1 font-bold truncate"
-                    >
-                      <ExternalLink size={10} /> {sig.url}
-                    </a>
-                  </div>
-                )}
+                {(sig.metadata as any)?.priority_reason && (() => {
+                  const sev = SEVERITY_COLORS[sig.severity] || SEVERITY_COLORS[2];
+                  return (
+                    <div className={cn('rounded p-3', sev.bg)}>
+                      <div className={cn('text-[9px] font-black uppercase tracking-widest mb-1', sev.text)}>Priority Reason</div>
+                      <p className={cn('text-[10px] font-bold', sev.text)}>{(sig.metadata as any).priority_reason}</p>
+                    </div>
+                  );
+                })()}
                 {sig.tags.length > 0 && (
                   <div>
                     <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Tags</div>
