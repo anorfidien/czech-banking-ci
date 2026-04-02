@@ -15,7 +15,5 @@ sources:
   pricing_url: https://www.csas.cz/cs/osobni-finance/sazebnik
   website_urls:
   - https://www.csas.cz/cs/osobni-finance
-  news_search_name: Česká spořitelna
-  news_rss: https://news.google.com/rss/search?q=%C4%8Cesk%C3%A1+spo%C5%99itelna&hl=cs&gl=CZ&ceid=CZ:cs
 monitoring:
   priority: high

@@ -9,8 +9,6 @@ sources:
   pricing_url: https://www.rb.cz/sazebnik
   website_urls:
   - https://www.rb.cz/osobni
-  news_search_name: Raiffeisenbank
-  news_rss: https://news.google.com/rss/search?q=Raiffeisenbank+%C4%8Cesko&hl=cs&gl=CZ&ceid=CZ:cs
 monitoring:
   priority: medium
 aliases:

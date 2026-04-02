@@ -88,18 +88,10 @@ class NewsCollector(BaseCollector):
         return matched
 
     def collect(self, competitor_id: str) -> list[Signal]:
-        config = self._load_competitor_config(competitor_id)
-        sources = config.get("sources", {})
         signals = []
 
-        # 1. Competitor-specific Google News RSS
-        rss_url = sources.get("news_rss")
-        if rss_url:
-            signals.extend(self._collect_feed(
-                competitor_id, rss_url, "google_news",
-            ))
-
-        # 2. Industry-wide feeds — only collect articles mentioning this competitor
+        # Scan industry feeds (ČNB, HN, E15, Kurzy, Měšec, Patria, Roklen24, ČTK)
+        # Only collect articles that mention this competitor
         for feed in self._load_industry_feeds():
             feed_signals = self._collect_feed(
                 competitor_id=None,  # will be matched

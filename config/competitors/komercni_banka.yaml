@@ -9,8 +9,6 @@ sources:
   pricing_url: https://www.kb.cz/cs/sazebniky
   website_urls:
   - https://www.kb.cz/cs/obcane
-  news_search_name: Komerční banka
-  news_rss: https://news.google.com/rss/search?q=Komer%C4%8Dn%C3%AD+banka&hl=cs&gl=CZ&ceid=CZ:cs
 monitoring:
   priority: high
 aliases:

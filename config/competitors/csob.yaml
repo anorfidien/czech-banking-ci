@@ -9,8 +9,6 @@ sources:
   pricing_url: https://www.csob.cz/portal/lide/sazebniky-a-uroky
   website_urls:
   - https://www.csob.cz/portal/lide
-  news_search_name: ČSOB
-  news_rss: https://news.google.com/rss/search?q=%C4%8CSOB&hl=cs&gl=CZ&ceid=CZ:cs
 monitoring:
   priority: high
 aliases:

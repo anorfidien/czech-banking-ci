@@ -9,8 +9,6 @@ sources:
   pricing_url: https://www.airbank.cz/sazebnik/
   website_urls:
   - https://www.airbank.cz/
-  news_search_name: Air Bank
-  news_rss: https://news.google.com/rss/search?q=Air+Bank+%C4%8Cesko&hl=cs&gl=CZ&ceid=CZ:cs
 monitoring:
   priority: medium
 aliases:

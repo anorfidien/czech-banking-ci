@@ -9,8 +9,6 @@ sources:
   pricing_url: https://www.fio.cz/bankovni-sluzby/sazebnik
   website_urls:
   - https://www.fio.cz/
-  news_search_name: Fio banka
-  news_rss: https://news.google.com/rss/search?q=Fio+banka&hl=cs&gl=CZ&ceid=CZ:cs
 monitoring:
   priority: medium
 aliases:
