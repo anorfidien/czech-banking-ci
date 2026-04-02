@@ -59,13 +59,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-// Loan drill-down hierarchy
-const LOAN_LEVELS = [
-  { id: 'loans_total', label: 'Loans Total' },
-  { id: 'loans_retail', label: 'Retail Loans' },
-  { id: 'loans_commercial', label: 'Commercial Loans' },
-  { id: 'mortgages', label: 'Mortgages' },
-];
+// Single loan metric — drill-down shows the breakdown
+const LOAN_METRIC_ID = 'loans_total';
 
 const DRILLDOWN_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1',
@@ -113,17 +108,17 @@ export default function Markets() {
   // Group by category, but merge all loan-related into single "Loans" entry
   const categories = useMemo(() => {
     const cats = new Map<string, SeriesInfo[]>();
-    const loanIds = new Set(LOAN_LEVELS.map((l) => l.id));
+    const loanIds = new Set([LOAN_METRIC_ID, 'loans_retail', 'loans_commercial', 'mortgages']);
 
     for (const s of uniqueMetrics) {
-      if (loanIds.has(s.series_id)) continue; // skip individual loan metrics
+      if (loanIds.has(s.series_id)) continue;
       if (!cats.has(s.category)) cats.set(s.category, []);
       cats.get(s.category)!.push(s);
     }
     return cats;
   }, [uniqueMetrics]);
 
-  const isLoanMode = LOAN_LEVELS.some((l) => l.id === selectedMetric);
+  const isLoanMode = selectedMetric === LOAN_METRIC_ID;
 
   // Fetch comparison data
   useEffect(() => {
@@ -189,7 +184,7 @@ export default function Markets() {
   }, [metricsData]);
 
   const currentMetricInfo = uniqueMetrics.find((s) => s.series_id === selectedMetric)
-    || LOAN_LEVELS.find((l) => l.id === selectedMetric) && { series_name: LOAN_LEVELS.find((l) => l.id === selectedMetric)!.label + ' (mio CZK)', unit: 'mio CZK' };
+    || (isLoanMode ? { series_name: 'Total Loans (mio CZK)', unit: 'mio CZK' } : null);
 
   const toggleBank = useCallback((bankId: string) => {
     setSelectedBanks((prev) => prev.includes(bankId) ? prev.filter((b) => b !== bankId) : [...prev, bankId]);
@@ -228,18 +223,14 @@ export default function Markets() {
           </div>
         </div>
 
-        {/* LOANS — single button with sub-levels */}
+        {/* LOANS — single button */}
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loans</label>
-          <div className="space-y-0.5">
-            {LOAN_LEVELS.map((l) => (
-              <button key={l.id} onClick={() => { setSelectedMetric(l.id); setLoanDrillLevel(null); }}
-                className={cn('w-full text-left px-3 py-1.5 rounded text-[10px] font-bold transition-all border',
-                  selectedMetric === l.id ? 'bg-[#fee600] border-[#fee600] text-black shadow-sm' : 'bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
-                {l.label}
-              </button>
-            ))}
-          </div>
+          <button onClick={() => { setSelectedMetric(LOAN_METRIC_ID); setLoanDrillLevel(null); }}
+            className={cn('w-full text-left px-3 py-1.5 rounded text-[10px] font-bold transition-all border',
+              isLoanMode ? 'bg-[#fee600] border-[#fee600] text-black shadow-sm' : 'bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
+            Total Loans
+          </button>
         </div>
 
         {/* Other metric categories */}
@@ -285,7 +276,7 @@ export default function Markets() {
           {loanDrillLevel && (
             <div className="flex items-center gap-2 mb-4 py-2 px-3 bg-slate-50 rounded">
               <button onClick={() => setLoanDrillLevel(null)} className="text-[10px] font-black text-blue-600 uppercase tracking-wider hover:underline">
-                {LOAN_LEVELS.find((l) => l.id === selectedMetric)?.label || 'Loans'} (All Banks)
+                Total Loans (All Banks)
               </button>
               <ChevronRight size={12} className="text-slate-400" />
               <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">

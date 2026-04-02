@@ -156,26 +156,48 @@ def create_app(db_path: str | None = None) -> Flask:
 
     @app.route("/api/metrics/drilldown")
     def api_metrics_drilldown():
-        """Get loan drill-down data for a specific bank."""
+        """Get loan drill-down: Retail, Commercial, Mortgages, Other per bank."""
         db = get_db()
         try:
             comp = request.args.get("competitor")
-            pct = request.args.get("pct", "false") == "true"
             if not comp:
                 return jsonify([])
-            suffix = "_pct" if pct else ""
-            # Get all loan drilldown series for this bank (exclude totals/subtotals)
-            rows = db.conn.execute(
-                f"""SELECT series_id, series_name, date, value, unit
-                    FROM metrics
-                    WHERE category = 'loan_drilldown'
-                      AND competitor_id = ?
-                      AND series_id LIKE ?
-                      AND series_id NOT LIKE '%total%'
-                    ORDER BY date, series_name""",
-                (comp, f"loan_{comp}_%{suffix}"),
-            ).fetchall()
-            return jsonify([dict(r) for r in rows])
+
+            # Get the 3 main loan sub-categories for this bank
+            retail = db.get_metrics(series_id="loans_retail", competitor_id=comp)
+            commercial = db.get_metrics(series_id="loans_commercial", competitor_id=comp)
+            mortgages = db.get_metrics(series_id="mortgages", competitor_id=comp)
+            total = db.get_metrics(series_id="loans_total", competitor_id=comp)
+
+            # Build "Other" = Total - Retail - Commercial
+            total_by_date = {r["date"]: r["value"] for r in total}
+            retail_by_date = {r["date"]: r["value"] for r in retail}
+            commercial_by_date = {r["date"]: r["value"] for r in commercial}
+
+            result = []
+            for r in retail:
+                result.append({**r, "series_name": "Retail Loans", "series_id": "retail"})
+            for r in commercial:
+                result.append({**r, "series_name": "Commercial Loans", "series_id": "commercial"})
+            for r in mortgages:
+                result.append({**r, "series_name": "Mortgages", "series_id": "mortgages"})
+
+            # Compute Other
+            for date, tot in total_by_date.items():
+                ret = retail_by_date.get(date, 0)
+                com = commercial_by_date.get(date, 0)
+                other = tot - ret - com
+                if other > 0:
+                    result.append({
+                        "series_id": "other",
+                        "series_name": "Other",
+                        "date": date,
+                        "value": other,
+                        "unit": "mio CZK",
+                        "competitor_id": comp,
+                    })
+
+            return jsonify(sorted(result, key=lambda x: (x["date"], x["series_name"])))
         finally:
             db.close()
 
