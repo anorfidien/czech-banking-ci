@@ -97,7 +97,11 @@ type ChartMode = 'line' | 'bar';
 type YtdMode = 'ytd' | 'yearly' | 'quarterly';
 
 // Metrics that are YTD cumulative and support de-cumulation
-const YTD_METRICS = new Set(['npat_ytd']);
+const YTD_METRICS = new Set([
+  'npat_ytd', 'op_income_ytd', 'op_expense_ytd', 'net_op_income_ytd',
+  'nii_ytd', 'net_fees_ytd', 'interest_income_ytd', 'interest_expense_ytd',
+  'perex_ytd', 'gae_ytd', 'depreciation_ytd', 'reg_charges_ytd', 'other_op_result_ytd',
+]);
 
 export default function Markets() {
   const [loading, setLoading] = useState(true);
