@@ -286,10 +286,6 @@ function SignalRow({
                     </div>
                   </div>
                 )}
-                <div>
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Hash</div>
-                  <span className="font-mono text-slate-400">{sig.content_hash.slice(0, 16)}...</span>
-                </div>
               </div>
             </div>
           </td>
