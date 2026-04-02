@@ -218,7 +218,7 @@ export default function Markets() {
     });
   }, [chartData, ytdData, selectedBanks, isYtdMetric]);
 
-  // Pivot drill-down
+  // Pivot drill-down + apply YTD transform
   const { ddChart, ddCats } = useMemo(() => {
     const byDate = new Map<string, Record<string, any>>();
     const cats = new Set<string>();
@@ -227,11 +227,40 @@ export default function Markets() {
       if (!byDate.has(d.date)) byDate.set(d.date, { date: d.date });
       byDate.get(d.date)![d.series_name] = d.value;
     }
-    return {
-      ddChart: [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))),
-      ddCats: [...cats],
-    };
-  }, [drillData]);
+    let rawData = [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const catList = [...cats];
+
+    if (isYtdMetric && ytdMode !== 'ytd' && rawData.length > 0) {
+      if (ytdMode === 'yearly') {
+        rawData = rawData.filter((row) => String(row.date).split('-')[1] === '12');
+      } else {
+        // quarterly: de-cumulate each category
+        const result: Record<string, any>[] = [];
+        for (let i = 0; i < rawData.length; i++) {
+          const row = rawData[i];
+          const [year, month] = String(row.date).split('-');
+          const isQ1 = month === '03';
+          const out: Record<string, any> = { date: row.date };
+          for (const cat of catList) {
+            const val = (row[cat] as number) ?? null;
+            if (val === null) { out[cat] = null; continue; }
+            if (isQ1 || i === 0) {
+              out[cat] = val;
+            } else {
+              const prevRow = rawData[i - 1];
+              const prevYear = String(prevRow.date).split('-')[0];
+              const prevVal = (prevRow[cat] as number) ?? null;
+              out[cat] = (prevVal !== null && prevYear === year) ? val - prevVal : val;
+            }
+          }
+          result.push(out);
+        }
+        rawData = result;
+      }
+    }
+
+    return { ddChart: rawData, ddCats: catList };
+  }, [drillData, isYtdMetric, ytdMode]);
 
   // Current metric info
   const metricInfo = useMemo(() => {
@@ -336,29 +365,31 @@ export default function Markets() {
               <h3 className="text-lg font-black text-slate-900 tracking-tight">{metricInfo.label}</h3>
               {metricUnit && <span className="text-[10px] font-bold text-slate-400">{metricUnit}</span>}
             </div>
-            {!drillBank && (
-              <div className="flex items-center gap-2">
-                {isYtdMetric && (
+            <div className="flex items-center gap-2">
+              {isYtdMetric && (
+                <div className="flex gap-1 bg-slate-100 rounded p-1">
+                  {(['ytd', 'yearly', 'quarterly'] as YtdMode[]).map((m) => (
+                    <button key={m} onClick={() => setYtdMode(m)}
+                      className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
+                        ytdMode === m ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
+                      {m === 'ytd' ? 'YTD' : m === 'yearly' ? 'Yearly' : 'Quarterly'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!drillBank && (
+                <>
                   <div className="flex gap-1 bg-slate-100 rounded p-1">
-                    {(['ytd', 'yearly', 'quarterly'] as YtdMode[]).map((m) => (
-                      <button key={m} onClick={() => setYtdMode(m)}
-                        className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
-                          ytdMode === m ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
-                        {m === 'ytd' ? 'YTD' : m === 'yearly' ? 'Yearly' : 'Quarterly'}
-                      </button>
-                    ))}
+                    <button onClick={() => setShowMarketShare(false)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', !showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>Absolute</button>
+                    <button onClick={() => setShowMarketShare(true)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>% Share</button>
                   </div>
-                )}
-                <div className="flex gap-1 bg-slate-100 rounded p-1">
-                  <button onClick={() => setShowMarketShare(false)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', !showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>Absolute</button>
-                  <button onClick={() => setShowMarketShare(true)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>% Share</button>
-                </div>
-                <div className="flex gap-1 bg-slate-100 rounded p-1">
-                  <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
-                  <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
-                </div>
-              </div>
-            )}
+                  <div className="flex gap-1 bg-slate-100 rounded p-1">
+                    <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
+                    <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Breadcrumb */}
