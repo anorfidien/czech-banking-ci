@@ -49,7 +49,7 @@ export default function Signals() {
       return 0;
     });
     return result;
-  }, [signals, filterSource, filterCompetitor, filterSeverity, searchQuery, sortKey, sortDir]);
+  }, [signals, filterSource, filterCompetitor, filterSeverity, filterSegment, searchQuery, sortKey, sortDir]);
 
   const handleSort = (key: typeof sortKey) => {
     if (sortKey === key) {
