@@ -37,7 +37,7 @@ const METRIC_DOMAINS: Record<MetricKey, [number, number]> = {
 const BANK_COLORS: Record<string, string> = {
   raiffeisenbank: '#eab308', ceska_sporitelna: '#3b82f6', csob: '#10b981',
   komercni_banka: '#ef4444', moneta: '#a855f7', fio_banka: '#22c55e', unicredit: '#f97316',
-  air_bank: '#06b6d4', mbank: '#f43f5e', partners_bank: '#00a19a', revolut_cz: '#6366f1',
+  air_bank: '#06b6d4', partners_bank: '#00a19a', revolut_cz: '#6366f1',
 };
 
 export default function Competitors() {

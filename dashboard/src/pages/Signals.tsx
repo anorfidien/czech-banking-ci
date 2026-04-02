@@ -34,7 +34,6 @@ export default function Signals() {
     { value: 'fio_banka', label: 'Fio banka' },
     { value: 'unicredit', label: 'UniCredit' },
     { value: 'air_bank', label: 'Air Bank' },
-    { value: 'mbank', label: 'mBank' },
     { value: 'partners_bank', label: 'Partners Bank' },
     { value: 'revolut_cz', label: 'Revolut' },
   ];

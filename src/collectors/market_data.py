@@ -24,8 +24,6 @@ BANK_ID_MAP = {
     "UNI": "unicredit",
     "Air Bank": "air_bank",
     "AIR": "air_bank",
-    "mBank": "mbank",
-    "MB": "mbank",
     "Partners": "partners_bank",
     "PB": "partners_bank",
     "Revolut": "revolut_cz",
