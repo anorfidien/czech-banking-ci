@@ -1,304 +1,261 @@
-"""Collector for Czech banking market data from ČNB and ČSÚ."""
+"""Import bank financial data from Excel (bb_values.xlsx format)."""
 
-import csv
-import io
-import json
 import logging
 from datetime import datetime
+from pathlib import Path
 
-from src.collectors.base import BaseCollector, CollectorError
+import openpyxl
+
+from src.collectors.base import BaseCollector
 from src.models.database import Database
 
 logger = logging.getLogger(__name__)
 
-# ── Series definitions ──────────────────────────────────────────
-# Each tuple: (series_id, series_name, category, unit, fetch_function_name)
-
-CNB_SERIES = [
-    # PRIBOR interbank rates
-    {"id": "cnb:pribor_1d", "name": "PRIBOR 1 den", "category": "rates", "unit": "%"},
-    {"id": "cnb:pribor_1w", "name": "PRIBOR 1 týden", "category": "rates", "unit": "%"},
-    {"id": "cnb:pribor_3m", "name": "PRIBOR 3 měsíce", "category": "rates", "unit": "%"},
-    {"id": "cnb:pribor_6m", "name": "PRIBOR 6 měsíců", "category": "rates", "unit": "%"},
-    {"id": "cnb:pribor_1y", "name": "PRIBOR 1 rok", "category": "rates", "unit": "%"},
-    # FX
-    {"id": "cnb:eur_czk", "name": "EUR/CZK kurz", "category": "fx", "unit": "CZK"},
-    {"id": "cnb:usd_czk", "name": "USD/CZK kurz", "category": "fx", "unit": "CZK"},
-]
-
-PRIBOR_TERM_MAP = {
-    "1 den": "cnb:pribor_1d",
-    "7 dní": "cnb:pribor_1w",
-    "3 měsíce": "cnb:pribor_3m",
-    "6 měsíců": "cnb:pribor_6m",
-    "1 rok": "cnb:pribor_1y",
+# Map Excel bank abbreviations to competitor IDs
+BANK_ID_MAP = {
+    "RB": "raiffeisenbank",
+    "Moneta": "moneta",
+    "ČSOB": "csob",
+    "ČS": "ceska_sporitelna",
+    "KB": "komercni_banka",
+    "FIO": "fio_banka",
+    "UNI": "unicredit",
 }
 
-CZSO_DATASETS = [
-    {
-        "id": "czso:cpi",
-        "name": "Index spotřebitelských cen (CPI)",
-        "category": "macro",
-        "unit": "index",
-        "package": "010022",
-    },
-]
 
-CNB_PRIBOR_URL = "https://www.cnb.cz/cs/financni_trhy/penezni_trh/pribor/denni.txt"
-CNB_FX_URL = "https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt"
-CNB_FX_HISTORY_URL = "https://www.cnb.cz/cs/financni_trhy/devizovy_trh/kurzy_devizoveho_trhu/vybrane.txt?od={start}&do={end}&mena={currency}"
-CZSO_PACKAGE_URL = "https://vdb.czso.cz/pll/eweb/package_show?id={package}"
+def import_financials(db: Database, excel_path: str) -> int:
+    """Parse bb_values.xlsx and load all metrics into the DB.
+
+    File format: sections of 11 rows each:
+      Row 1: section category header (e.g. "Assets")
+      Row 2: metric name + date columns (e.g. "Total Assets (mio CZK) - EoP | 3/31/2022 | ...")
+      Row 3: column index numbers (skip)
+      Rows 4-10: bank data (RB, Moneta, ČSOB, ČS, KB, FIO, UNI)
+      Row 11: blank separator
+    """
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    ws = wb["Sheet1"]
+
+    total = 0
+    row = 1
+    max_row = ws.max_row
+
+    while row <= max_row:
+        # Find next section: look for a row where col A has text and col B has a date
+        metric_row = None
+        for r in range(row, min(row + 5, max_row + 1)):
+            cell_b = ws.cell(row=r, column=2).value
+            if cell_b and _is_date(cell_b):
+                metric_row = r
+                break
+
+        if metric_row is None:
+            row += 1
+            continue
+
+        # Parse metric name from column A
+        series_name = str(ws.cell(row=metric_row, column=1).value or "").strip()
+        if not series_name:
+            row = metric_row + 10
+            continue
+
+        # Derive series_id and category
+        series_id, category, unit = _classify_metric(series_name)
+
+        # Parse date columns (columns B onwards)
+        dates = []
+        for col in range(2, ws.max_column + 1):
+            val = ws.cell(row=metric_row, column=col).value
+            if val and _is_date(val):
+                dates.append((col, _parse_date(val)))
+            elif val is None:
+                break
+
+        if not dates:
+            row = metric_row + 10
+            continue
+
+        # Parse bank data rows (typically rows metric_row+2 through metric_row+8)
+        data_start = metric_row + 2  # skip the "1 | 6 | 7 | ..." index row
+        for r in range(data_start, min(data_start + 8, max_row + 1)):
+            bank_label = ws.cell(row=r, column=1).value
+            if not bank_label:
+                continue
+            bank_label = str(bank_label).strip()
+            comp_id = BANK_ID_MAP.get(bank_label)
+            if not comp_id:
+                continue
+
+            for col, date_str in dates:
+                val = ws.cell(row=r, column=col).value
+                if val is None:
+                    continue
+                try:
+                    value = float(val)
+                except (ValueError, TypeError):
+                    continue
+
+                db.upsert_metric(
+                    source="excel",
+                    series_id=series_id,
+                    series_name=series_name,
+                    category=category,
+                    date=date_str,
+                    value=value,
+                    unit=unit,
+                    competitor_id=comp_id,
+                )
+                total += 1
+
+        row = data_start + 8  # skip to next section
+        logger.info("Imported %s: %s", series_id, series_name)
+
+    wb.close()
+    logger.info("Total imported: %d data points", total)
+    return total
+
+
+def _is_date(val) -> bool:
+    """Check if a cell value looks like a date."""
+    if isinstance(val, datetime):
+        return True
+    s = str(val).strip()
+    return "/" in s and len(s) <= 12
+
+
+def _parse_date(val) -> str:
+    """Convert cell date to YYYY-MM-DD."""
+    if isinstance(val, datetime):
+        return val.strftime("%Y-%m-%d")
+    # Parse "3/31/2022" format
+    s = str(val).strip()
+    parts = s.split("/")
+    if len(parts) == 3:
+        month, day, year = parts
+        return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+    return s
+
+
+# ── Metric classification ───────────────────────────────────────
+
+METRIC_MAP = {
+    "Total Assets": ("total_assets", "balance_sheet", "mio CZK"),
+    "Total Liabilities": ("total_liabilities", "balance_sheet", "mio CZK"),
+    "Total Equity": ("total_equity", "balance_sheet", "mio CZK"),
+    "Loans and receivables to Banks": ("loans_to_banks", "balance_sheet", "mio CZK"),
+    "Deposits received from Banks": ("deposits_from_banks", "balance_sheet", "mio CZK"),
+    "Loans and receivables to Customers": ("loans_to_customers", "loans", "mio CZK"),
+    "Deposits received from Customers": ("customer_deposits", "balance_sheet", "mio CZK"),
+    "Intangible Assets": ("intangible_assets", "balance_sheet", "mio CZK"),
+    "Debt Securties": ("debt_securities", "balance_sheet", "mio CZK"),
+    "ROE - QTD": ("roe_qtd", "profitability", "%"),
+    "ROE - YTD": ("roe_ytd", "profitability", "%"),
+    "Operating Income (mio CZK) - QTD": ("op_income_qtd", "income", "mio CZK"),
+    "Operating Income (mio CZK) - YTD": ("op_income_ytd", "income", "mio CZK"),
+    "Operating Expense (mio CZK) - QTD": ("op_expense_qtd", "expenses", "mio CZK"),
+    "Operating Expense (mio CZK) - YTD": ("op_expense_ytd", "expenses", "mio CZK"),
+    "Net Operating Income (mio CZK) - QTD": ("net_op_income_qtd", "income", "mio CZK"),
+    "Net Operating Income (mio CZK) - YTD": ("net_op_income_ytd", "income", "mio CZK"),
+    "Cost to Income Ratio (%) - QTD": ("cir_qtd", "profitability", "%"),
+    "Cost to Income Ratio (%) - YTD": ("cir_ytd", "profitability", "%"),
+    "Net Profit after tax (mio CZK) - QTD": ("npat_qtd", "profitability", "mio CZK"),
+    "Net Profit after tax (mio CZK) - YTD": ("npat_ytd", "profitability", "mio CZK"),
+    "Profit after tax  per Employee (CZK) - QTD": ("npat_per_employee_qtd", "efficiency", "CZK"),
+    "Profit after tax per Client (CZK) - QTD": ("npat_per_client_qtd", "efficiency", "CZK"),
+    "Operating Income per Employee (CZK) - QTD": ("op_income_per_employee_qtd", "efficiency", "CZK"),
+    "Operating Income per Client (CZK) - QTD": ("op_income_per_client_qtd", "efficiency", "CZK"),
+    "Operating Expense per Employee (CZK) - QTD": ("op_expense_per_employee_qtd", "efficiency", "CZK"),
+    "Operating Expense per Client (CZK) - QTD": ("op_expense_per_client_qtd", "efficiency", "CZK"),
+    "Net Operating Income per Employee (CZK) - QTD": ("net_op_income_per_employee_qtd", "efficiency", "CZK"),
+    "Net Operating Income per Client (CZK) - QTD": ("net_op_income_per_client_qtd", "efficiency", "CZK"),
+    "Number of FTE - EoP": ("fte", "operations", "FTE"),
+    "Number of clients (mio) - EoP": ("clients", "operations", "mil"),
+    "Loans Total (mio CZK)": ("loans_total", "loans", "mio CZK"),
+    "Retail Loans Total (mio CZK)": ("loans_retail", "loans", "mio CZK"),
+    "Commercial Loans Total (mio CZK)": ("loans_commercial", "loans", "mio CZK"),
+    "Mortgages Total (mio CZK)": ("mortgages", "loans", "mio CZK"),
+    "Interest Income (mio CZK) - QTD": ("interest_income_qtd", "nii", "mio CZK"),
+    "Interest Income (mio CZK) - YTD": ("interest_income_ytd", "nii", "mio CZK"),
+    "Interest Expense (mio CZK) - QTD": ("interest_expense_qtd", "nii", "mio CZK"),
+    "Interest Expense (mio CZK) - YTD": ("interest_expense_ytd", "nii", "mio CZK"),
+    "Net Interest Income (mio CZK) - QTD": ("nii_qtd", "nii", "mio CZK"),
+    "Net Interest Income (mio CZK) - YTD": ("nii_ytd", "nii", "mio CZK"),
+    "Net Interest Margin - QTD": ("nim_qtd", "nii", "%"),
+    "Net Interest Margin - YTD": ("nim_ytd", "nii", "%"),
+    "Net Fees&Commissions  (mio CZK) - QTD": ("net_fees_qtd", "income", "mio CZK"),
+    "Net Fees&Commissions  (mio CZK) - YTD": ("net_fees_ytd", "income", "mio CZK"),
+    "Personnel Expense (mio CZK) - QTD": ("perex_qtd", "expenses", "mio CZK"),
+    "Personnel Expense (mio CZK) - YTD": ("perex_ytd", "expenses", "mio CZK"),
+    "General Administrative Expenses (mio CZK) - QTD": ("gae_qtd", "expenses", "mio CZK"),
+    "General Administrative Expenses (mio CZK) - YTD": ("gae_ytd", "expenses", "mio CZK"),
+    "Regulatory charges (mio CZK) - QTD": ("reg_charges_qtd", "expenses", "mio CZK"),
+    "Regulatory charges (mio CZK) - YTD": ("reg_charges_ytd", "expenses", "mio CZK"),
+    "Depreciation and Amortisation (mio CZK) - QTD": ("depreciation_qtd", "expenses", "mio CZK"),
+    "Depreciation and Amortisation (mio CZK) - YTD": ("depreciation_ytd", "expenses", "mio CZK"),
+    "Other Operating Result (mio CZK) - QTD": ("other_op_result_qtd", "income", "mio CZK"),
+    "Other Operating Result (mio CZK) - YTD": ("other_op_result_ytd", "income", "mio CZK"),
+    "Personnel Expense per Employee (CZK) - QTD": ("perex_per_employee_qtd", "efficiency", "CZK"),
+    "GAE per Employee (CZK) - QTD": ("gae_per_employee_qtd", "efficiency", "CZK"),
+    "Personnel Expense per Client (CZK) - QTD": ("perex_per_client_qtd", "efficiency", "CZK"),
+    "GAE per Client(CZK) - QTD": ("gae_per_client_qtd", "efficiency", "CZK"),
+    "Liquidity Coverage Ratio": ("lcr", "regulatory", "%"),
+    "Net Stable Funding Ratio": ("nsfr", "regulatory", "%"),
+    "Effective Tax Rate - YTD": ("effective_tax_rate_ytd", "profitability", "%"),
+    "Capital Adequacy (% of RWA)": ("capital_adequacy", "regulatory", "%"),
+    "Non-Performing Loans (%)": ("npl_ratio", "risk", "%"),
+    "MREL": ("mrel", "regulatory", "%"),
+    "Ratings (long-term)": ("rating", "regulatory", "rating"),
+    "Risk Costs - QTD (mio CZK)": ("risk_costs_qtd", "risk", "mio CZK"),
+    "Risk Weighted Assets (mio CZK)": ("rwa", "risk", "mio CZK"),
+    "Risk Charge (%)": ("risk_charge", "risk", "%"),
+}
+
+
+def _classify_metric(name: str) -> tuple[str, str, str]:
+    """Return (series_id, category, unit) for a metric name."""
+    # Exact match first
+    if name in METRIC_MAP:
+        return METRIC_MAP[name]
+
+    # Partial match
+    for key, (sid, cat, unit) in METRIC_MAP.items():
+        if key in name or name in key:
+            return sid, cat, unit
+
+    # Fallback: slugify the name
+    slug = name.lower().replace(" ", "_").replace("(", "").replace(")", "")[:40]
+    return slug, "other", ""
 
 
 class MarketDataCollector(BaseCollector):
+    """Collector that imports bank financials from Excel."""
     name = "market_data"
-    rate_limit_delay = 1.5
-    required_source_key = None  # runs for all
+    rate_limit_delay = 0
+    required_source_key = None
 
     def collect(self, competitor_id: str) -> list:
-        # This collector doesn't produce signals — it stores metrics directly.
-        # We override run() instead.
         return []
 
     def run(self, competitor_ids: list[str] | None = None) -> dict:
-        """Collect market data (not competitor-specific)."""
+        """Import from Excel file if present in config/."""
         run_id = self.db.start_collector_run(self.name, None)
-        total = 0
-        errors = []
+
+        excel_path = self.config_dir / "bb_values.xlsx"
+        if not excel_path.exists():
+            # Also check data/ directory
+            excel_path = Path("data") / "bb_values.xlsx"
+
+        if not excel_path.exists():
+            self.db.finish_collector_run(run_id, "failed", error_message="bb_values.xlsx not found in config/ or data/")
+            return {"total": 0, "new_signals": 0, "errors": 1,
+                    "competitors": {"_market_data": {"status": "failed", "error": "bb_values.xlsx not found"}}}
 
         try:
-            total += self._collect_pribor()
+            total = import_financials(self.db, str(excel_path))
+            self.db.finish_collector_run(run_id, "success", total)
+            return {"total": total, "new_signals": total, "errors": 0,
+                    "competitors": {"_market_data": {"status": "success", "signals": total}}}
         except Exception as e:
-            logger.error("PRIBOR collection failed: %s", e)
-            errors.append(f"pribor: {e}")
-
-        try:
-            total += self._collect_fx()
-        except Exception as e:
-            logger.error("FX collection failed: %s", e)
-            errors.append(f"fx: {e}")
-
-        try:
-            total += self._collect_fx_history("EUR", "cnb:eur_czk", "EUR/CZK kurz")
-        except Exception as e:
-            logger.error("EUR history failed: %s", e)
-            errors.append(f"eur_history: {e}")
-
-        try:
-            total += self._collect_fx_history("USD", "cnb:usd_czk", "USD/CZK kurz")
-        except Exception as e:
-            logger.error("USD history failed: %s", e)
-            errors.append(f"usd_history: {e}")
-
-        try:
-            total += self._collect_czso()
-        except Exception as e:
-            logger.error("CZSO collection failed: %s", e)
-            errors.append(f"czso: {e}")
-
-        status = "success" if not errors else ("partial" if total > 0 else "failed")
-        self.db.finish_collector_run(
-            run_id, status, total,
-            "; ".join(errors) if errors else None,
-        )
-
-        logger.info("Market data: %d data points, %d errors", total, len(errors))
-        return {
-            "total": total,
-            "new_signals": total,
-            "errors": len(errors),
-            "competitors": {"_market_data": {"status": status, "signals": total}},
-        }
-
-    # ── PRIBOR (today) ──────────────────────────────────────────
-
-    def _collect_pribor(self) -> int:
-        resp = self._fetch(CNB_PRIBOR_URL)
-        lines = resp.text.strip().splitlines()
-        if len(lines) < 3:
-            return 0
-
-        date_raw = lines[0].strip()
-        date = self._parse_cz_date(date_raw)
-        count = 0
-
-        for line in lines[2:]:  # skip header
-            parts = line.split("|")
-            if len(parts) < 3:
-                continue
-            term = parts[0].strip()
-            pribor_str = parts[2].strip() if len(parts) > 2 else parts[1].strip()
-            series_id = PRIBOR_TERM_MAP.get(term)
-            if not series_id or not pribor_str:
-                continue
-            value = float(pribor_str.replace(",", "."))
-            series = next((s for s in CNB_SERIES if s["id"] == series_id), None)
-            if series:
-                self.db.upsert_metric(
-                    "cnb", series_id, series["name"], series["category"],
-                    date, value, series["unit"],
-                )
-                count += 1
-
-        logger.info("PRIBOR: %d rates for %s", count, date)
-        return count
-
-    # ── FX rates (today) ────────────────────────────────────────
-
-    def _collect_fx(self) -> int:
-        resp = self._fetch(CNB_FX_URL)
-        lines = resp.text.strip().splitlines()
-        if len(lines) < 3:
-            return 0
-
-        date_raw = lines[0].split("#")[0].strip()
-        date = self._parse_cz_date(date_raw)
-        count = 0
-
-        for line in lines[2:]:
-            parts = line.split("|")
-            if len(parts) < 5:
-                continue
-            code = parts[3].strip()
-            amount = int(parts[2].strip())
-            rate = float(parts[4].strip().replace(",", "."))
-            per_unit = rate / amount
-
-            if code == "EUR":
-                self.db.upsert_metric("cnb", "cnb:eur_czk", "EUR/CZK kurz", "fx", date, per_unit, "CZK")
-                count += 1
-            elif code == "USD":
-                self.db.upsert_metric("cnb", "cnb:usd_czk", "USD/CZK kurz", "fx", date, per_unit, "CZK")
-                count += 1
-
-        logger.info("FX: %d rates for %s", count, date)
-        return count
-
-    # ── FX history ──────────────────────────────────────────────
-
-    def _collect_fx_history(self, currency: str, series_id: str, series_name: str) -> int:
-        start = "01.01.2020"
-        end = datetime.utcnow().strftime("%d.%m.%Y")
-        url = CNB_FX_HISTORY_URL.format(start=start, end=end, currency=currency)
-
-        resp = self._fetch(url)
-        lines = resp.text.strip().splitlines()
-        # Format: header line "Měna: EUR|Množství: 1", then "Datum|Kurz", then data
-        count = 0
-        for line in lines[2:]:  # skip 2 header lines
-            parts = line.split("|")
-            if len(parts) < 2:
-                continue
-            date = self._parse_cz_date(parts[0].strip())
-            val_str = parts[1].strip().replace(",", ".")
-            if not val_str:
-                continue
-            try:
-                value = float(val_str)
-            except ValueError:
-                continue
-            self.db.upsert_metric("cnb", series_id, series_name, "fx", date, value, "CZK")
-            count += 1
-
-        logger.info("FX history %s: %d data points", currency, count)
-        return count
-
-    # ── ČSÚ (CPI / inflation) ──────────────────────────────────
-
-    def _collect_czso(self) -> int:
-        total = 0
-        for ds in CZSO_DATASETS:
-            try:
-                total += self._collect_czso_dataset(ds)
-            except Exception as e:
-                logger.warning("CZSO %s failed: %s", ds["id"], e)
-        return total
-
-    def _collect_czso_dataset(self, ds: dict) -> int:
-        # Get dataset metadata to find CSV URL
-        meta_url = CZSO_PACKAGE_URL.format(package=ds["package"])
-        resp = self._fetch(meta_url)
-        data = resp.json()
-
-        if not data.get("success"):
-            logger.warning("CZSO package %s not found", ds["package"])
-            return 0
-
-        resources = data.get("result", {}).get("resources", [])
-        csv_url = None
-        for r in resources:
-            if r.get("format", "").lower() in ("text/csv", "csv"):
-                csv_url = r["url"]
-                break
-
-        if not csv_url:
-            logger.warning("No CSV resource in CZSO %s", ds["package"])
-            return 0
-
-        resp = self._fetch(csv_url)
-        content = resp.text
-
-        # Parse CSV — CZSO format varies but typically has columns for period and value
-        reader = csv.DictReader(io.StringIO(content))
-        count = 0
-
-        for row in reader:
-            # Look for period and value columns
-            period = row.get("obdobi") or row.get("OBDOBI") or row.get("rok_mesic") or ""
-            value_str = row.get("hodnota") or row.get("HODNOTA") or ""
-
-            if not period or not value_str:
-                continue
-
-            # Parse period (formats: "202401", "2024M01", "2024-01")
-            date = self._parse_czso_period(period)
-            if not date:
-                continue
-
-            try:
-                value = float(value_str.replace(",", "."))
-            except ValueError:
-                continue
-
-            # Only store the aggregate CPI (typically the first/main indicator)
-            # Filter for the main CPI index (COICOP = "0" or total)
-            coicop = row.get("COICOP", row.get("ukazatel", ""))
-            if coicop and coicop not in ("0", "CPI000000", "Úhrn", ""):
-                continue
-
-            self.db.upsert_metric(
-                "czso", ds["id"], ds["name"], ds["category"],
-                date, value, ds["unit"],
-            )
-            count += 1
-
-        logger.info("CZSO %s: %d data points", ds["id"], count)
-        return count
-
-    # ── Helpers ──────────────────────────────────────────────────
-
-    @staticmethod
-    def _parse_cz_date(date_str: str) -> str:
-        """Parse Czech date format DD.MM.YYYY to YYYY-MM-DD."""
-        date_str = date_str.strip().rstrip(".")
-        for fmt in ("%d.%m.%Y", "%d.%m.%y", "%Y-%m-%d"):
-            try:
-                return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
-            except ValueError:
-                continue
-        return date_str
-
-    @staticmethod
-    def _parse_czso_period(period: str) -> str | None:
-        """Parse CZSO period formats to YYYY-MM-DD."""
-        period = period.strip()
-        # "202401" or "2024M01"
-        if len(period) == 6 and period.isdigit():
-            return f"{period[:4]}-{period[4:]}-01"
-        if "M" in period:
-            parts = period.split("M")
-            if len(parts) == 2:
-                return f"{parts[0]}-{parts[1].zfill(2)}-01"
-        if "-" in period and len(period) == 7:
-            return f"{period}-01"
-        return None
+            self.db.finish_collector_run(run_id, "failed", error_message=str(e))
+            return {"total": 0, "new_signals": 0, "errors": 1,
+                    "competitors": {"_market_data": {"status": "failed", "error": str(e)}}}

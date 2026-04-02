@@ -22,6 +22,9 @@ data/*.log
 .DS_Store
 Thumbs.db
 
+# Source data (user-provided)
+config/bb_values.xlsx
+
 # Env
 .env
 .env.local
