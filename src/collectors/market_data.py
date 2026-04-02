@@ -22,6 +22,14 @@ BANK_ID_MAP = {
     "KB": "komercni_banka",
     "FIO": "fio_banka",
     "UNI": "unicredit",
+    "Air Bank": "air_bank",
+    "AIR": "air_bank",
+    "mBank": "mbank",
+    "MB": "mbank",
+    "Partners": "partners_bank",
+    "PB": "partners_bank",
+    "Revolut": "revolut_cz",
+    "REV": "revolut_cz",
 }
 
 # ── Sheet 1: values ─────────────────────────────────────────────
