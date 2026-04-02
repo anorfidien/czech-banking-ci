@@ -59,9 +59,9 @@ class AresCollector(BaseCollector):
                 title=f"ARES baseline captured for {data.get('obchodniJmeno', ico)}",
                 content=f"Company: {data.get('obchodniJmeno')}, ICO: {ico}",
                 url=url,
-                severity=1,
+                severity=3,
                 tags=["baseline", "ares"],
-                metadata={"ico": ico, "name": data.get("obchodniJmeno")},
+                metadata={"ico": ico, "name": data.get("obchodniJmeno"), "priority_reason": "Low: initial baseline capture"},
             )]
 
         changes = detect_changes(prev["content"], content, "json")
@@ -71,7 +71,7 @@ class AresCollector(BaseCollector):
 
         signals = []
         for change in changes.changes:
-            signal_type, severity = self._classify_ares_change(change.path)
+            signal_type, severity, reason = self._classify_ares_change(change.path)
             signals.append(Signal(
                 competitor_id=competitor_id,
                 source=self.name,
@@ -81,26 +81,27 @@ class AresCollector(BaseCollector):
                 url=url,
                 severity=severity,
                 tags=["ares", signal_type],
-                metadata={"field": change.path, "old": change.old_value, "new": change.new_value},
+                metadata={"field": change.path, "old": change.old_value, "new": change.new_value, "priority_reason": reason},
                 change_summary=f"{change.path}: {change.old_value} → {change.new_value}",
             ))
         return signals
 
-    def _classify_ares_change(self, path: str) -> tuple[str, int]:
+    def _classify_ares_change(self, path: str) -> tuple[str, int, str]:
+        """Returns (signal_type, severity, reason). 1=High, 2=Medium, 3=Low."""
         path_lower = path.lower()
-        if "sidlo" in path_lower:
-            return "address_change", 2
-        if "statutarni" in path_lower or "organ" in path_lower:
-            return "board_change", 4
-        if "kapital" in path_lower or "zakladni" in path_lower:
-            return "capital_change", 4
-        if "nace" in path_lower or "cinnost" in path_lower:
-            return "nace_change", 3
-        if "registrac" in path_lower or "rejstrik" in path_lower:
-            return "registration_change", 3
         if "obchodniJmeno" in path_lower or "nazev" in path_lower:
-            return "name_change", 5
-        return "ares_change", 2
+            return "name_change", 1, "High: company name change"
+        if "statutarni" in path_lower or "organ" in path_lower:
+            return "board_change", 1, "High: board/statutory body change"
+        if "kapital" in path_lower or "zakladni" in path_lower:
+            return "capital_change", 1, "High: share capital change"
+        if "nace" in path_lower or "cinnost" in path_lower:
+            return "nace_change", 2, "Medium: business activity (NACE) change"
+        if "registrac" in path_lower or "rejstrik" in path_lower:
+            return "registration_change", 2, "Medium: registry change"
+        if "sidlo" in path_lower:
+            return "address_change", 3, "Low: registered address change"
+        return "ares_change", 3, "Low: minor ARES field change"
 
     # ── Justice.cz ───────────────────────────────────────────────
 
@@ -163,9 +164,9 @@ class AresCollector(BaseCollector):
                 title=f"Justice.cz baseline: {len(members)} board members",
                 content="\n".join(m.get("name", "?") for m in members),
                 url=excerpt_link,
-                severity=1,
+                severity=3,
                 tags=["baseline", "justice"],
-                metadata=board,
+                metadata={**board, "priority_reason": "Low: initial Justice.cz baseline capture"},
             )]
 
         old_board = self._parse_justice_excerpt(prev["content"])
@@ -218,10 +219,10 @@ class AresCollector(BaseCollector):
     ) -> list[Signal]:
         signals = []
 
-        # Board and supervisory board diffs
+        # Board and supervisory board diffs (1=High, 2=Medium)
         board_configs = [
-            ("board_members", "board", 5, 4),
-            ("supervisory_board", "supervisory board", 4, 3),
+            ("board_members", "board", 1, 1),
+            ("supervisory_board", "supervisory board", 1, 2),
         ]
         for board_key, label, sev_add, sev_remove in board_configs:
             old_names = {m["name"] for m in old.get(board_key, [])}
@@ -237,7 +238,7 @@ class AresCollector(BaseCollector):
                     url=url,
                     severity=sev_add,
                     tags=[board_key, "new_member"],
-                    metadata={"name": name, "change": "added", "board": board_key},
+                    metadata={"name": name, "change": "added", "board": board_key, "priority_reason": f"High: new {label} member appointment"},
                 ))
 
             for name in old_names - new_names:
@@ -250,7 +251,7 @@ class AresCollector(BaseCollector):
                     url=url,
                     severity=sev_remove,
                     tags=[board_key, "removed_member"],
-                    metadata={"name": name, "change": "removed", "board": board_key},
+                    metadata={"name": name, "change": "removed", "board": board_key, "priority_reason": f"{'High' if sev_remove == 1 else 'Medium'}: {label} member removed"},
                 ))
 
         # Capital changes
@@ -262,9 +263,9 @@ class AresCollector(BaseCollector):
                 title=f"Capital change: {old['capital']} → {new['capital']}",
                 content=f"Share capital changed from {old['capital']} to {new['capital']}",
                 url=url,
-                severity=4,
+                severity=1,
                 tags=["capital"],
-                metadata={"old": old["capital"], "new": new["capital"]},
+                metadata={"old": old["capital"], "new": new["capital"], "priority_reason": "High: share capital change"},
             ))
 
         return signals
