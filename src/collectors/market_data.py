@@ -251,10 +251,7 @@ def _import_loan_drilldown(db: Database, ws) -> int:
                 db.upsert_metric("excel", sid, f"{base_name} Y/Y Change %", "loans_growth", date_str, value, "%", comp_id)
                 total += 1
 
-    # Part B: per-bank loan breakdown (col 66+)
-    # Parse each bank section
-    total += _import_bank_loan_breakdown(db, ws, 66, "mio CZK")  # absolute values
-    total += _import_bank_loan_breakdown(db, ws, 82, "%")  # % structure
+    # Part B skipped — drill-down computed server-side from Retail/Commercial/Mortgages/Other
 
     logger.info("loan_drill_down sheet: %d data points", total)
     return total

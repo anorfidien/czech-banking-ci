@@ -440,7 +440,7 @@ export default function Markets() {
                       </td>
                       {drillChartData.map((d) => (
                         <td key={d.date} className="px-3 py-2.5 text-right font-mono text-slate-700">
-                          {d[cat] != null ? Number(d[cat]).toLocaleString('cs-CZ') : '—'}
+                          {d[cat] != null ? Math.round(Number(d[cat])).toLocaleString('cs-CZ') : '—'}
                         </td>
                       ))}
                     </tr>
