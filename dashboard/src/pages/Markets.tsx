@@ -94,6 +94,10 @@ const DRILLDOWN_COLORS = [
 ];
 
 type ChartMode = 'line' | 'bar';
+type YtdMode = 'ytd' | 'yearly' | 'quarterly';
+
+// Metrics that are YTD cumulative and support de-cumulation
+const YTD_METRICS = new Set(['npat_ytd']);
 
 export default function Markets() {
   const [loading, setLoading] = useState(true);
@@ -104,6 +108,7 @@ export default function Markets() {
   const [selectedBanks, setSelectedBanks] = useState<string[]>(Object.keys(BANK_COLORS));
   const [chartMode, setChartMode] = useState<ChartMode>('line');
   const [showMarketShare, setShowMarketShare] = useState(false);
+  const [ytdMode, setYtdMode] = useState<YtdMode>('ytd');
 
   // Drill-down into one bank
   const [drillBank, setDrillBank] = useState<string | null>(null);
@@ -153,16 +158,61 @@ export default function Markets() {
     return [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   }, [metricsData]);
 
+  const isYtdMetric = YTD_METRICS.has(selectedMetric);
+
+  // YTD transformations: yearly (Q4 only) and quarterly (de-cumulated)
+  const ytdData = useMemo(() => {
+    if (!isYtdMetric || ytdMode === 'ytd') return chartData;
+
+    if (ytdMode === 'yearly') {
+      // Only keep Q4 rows (month = 12)
+      return chartData.filter((row) => {
+        const month = String(row.date).split('-')[1];
+        return month === '12';
+      });
+    }
+
+    // quarterly: de-cumulate by subtracting previous quarter within same year
+    const result: Record<string, any>[] = [];
+    for (let i = 0; i < chartData.length; i++) {
+      const row = chartData[i];
+      const [year, month] = String(row.date).split('-');
+      const isQ1 = month === '03';
+      const out: Record<string, any> = { date: row.date };
+
+      for (const b of selectedBanks) {
+        const val = (row[b] as number) ?? null;
+        if (val === null) { out[b] = null; continue; }
+
+        if (isQ1 || i === 0) {
+          out[b] = val; // Q1 is already standalone
+        } else {
+          const prevRow = chartData[i - 1];
+          const prevYear = String(prevRow.date).split('-')[0];
+          const prevVal = (prevRow[b] as number) ?? null;
+          if (prevVal !== null && prevYear === year) {
+            out[b] = val - prevVal;
+          } else {
+            out[b] = val; // new year, no previous to subtract
+          }
+        }
+      }
+      result.push(out);
+    }
+    return result;
+  }, [chartData, selectedBanks, isYtdMetric, ytdMode]);
+
   // % share version
   const shareData = useMemo(() => {
-    return chartData.map((row) => {
+    const src = isYtdMetric ? ytdData : chartData;
+    return src.map((row) => {
       const out: Record<string, any> = { date: row.date };
       let total = 0;
-      for (const b of selectedBanks) total += (row[b] as number) || 0;
+      for (const b of selectedBanks) total += Math.abs((row[b] as number) || 0);
       for (const b of selectedBanks) out[b] = total > 0 ? ((row[b] as number) || 0) / total * 100 : 0;
       return out;
     });
-  }, [chartData, selectedBanks]);
+  }, [chartData, ytdData, selectedBanks, isYtdMetric]);
 
   // Pivot drill-down
   const { ddChart, ddCats } = useMemo(() => {
@@ -222,7 +272,8 @@ export default function Markets() {
     return `${Math.round(Number(v)).toLocaleString('cs-CZ')} ${metricUnit}`;
   };
 
-  const activeData = showMarketShare ? shareData : chartData;
+  const baseData = isYtdMetric ? ytdData : chartData;
+  const activeData = showMarketShare ? shareData : baseData;
 
   if (loading) return <div className="max-w-[1400px] mx-auto animate-pulse"><div className="bg-white border border-slate-200 rounded-lg h-[500px] shadow-sm" /></div>;
 
@@ -258,7 +309,7 @@ export default function Markets() {
               {sec.metrics.map((m) => {
                 const isDrill = m.id in drilldownConfig;
                 return (
-                  <button key={m.id} onClick={() => { setSelectedMetric(m.id); setDrillBank(null); setShowMarketShare(false); }}
+                  <button key={m.id} onClick={() => { setSelectedMetric(m.id); setDrillBank(null); setShowMarketShare(false); setYtdMode('ytd'); }}
                     className={cn('w-full text-left px-3 py-1.5 rounded text-[10px] font-bold transition-all border flex items-center justify-between',
                       selectedMetric === m.id ? 'bg-[#fee600] border-[#fee600] text-black shadow-sm' : 'bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
                     <span>{m.label}</span>
@@ -283,6 +334,17 @@ export default function Markets() {
             </div>
             {!drillBank && (
               <div className="flex items-center gap-2">
+                {isYtdMetric && (
+                  <div className="flex gap-1 bg-slate-100 rounded p-1">
+                    {(['ytd', 'yearly', 'quarterly'] as YtdMode[]).map((m) => (
+                      <button key={m} onClick={() => setYtdMode(m)}
+                        className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
+                          ytdMode === m ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
+                        {m === 'ytd' ? 'YTD' : m === 'yearly' ? 'Yearly' : 'Quarterly'}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-1 bg-slate-100 rounded p-1">
                   <button onClick={() => setShowMarketShare(false)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', !showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>Absolute</button>
                   <button onClick={() => setShowMarketShare(true)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>% Share</button>
