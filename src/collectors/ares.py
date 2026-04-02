@@ -25,7 +25,7 @@ class AresCollector(BaseCollector):
         signals = []
 
         signals.extend(self._collect_ares_api(competitor_id, ico))
-        signals.extend(self._collect_justice(competitor_id, ico))
+        # Justice.cz disabled — fragile HTML parsing, low signal value
 
         return signals
 
