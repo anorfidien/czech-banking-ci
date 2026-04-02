@@ -81,10 +81,9 @@ export default function Markets() {
   const [chartMode, setChartMode] = useState<ChartMode>('line');
 
   // Loan drill-down state
-  const [loanDrillLevel, setLoanDrillLevel] = useState<string | null>(null); // null = no drill, bankId = show that bank's breakdown
+  const [loanDrillLevel, setLoanDrillLevel] = useState<string | null>(null);
   const [drillData, setDrillData] = useState<any[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
-  const [showPct, setShowPct] = useState(false);
 
   const HIDDEN_CATEGORIES = useMemo(() => new Set(['loan_drilldown', 'loans_growth']), []);
 
@@ -141,10 +140,10 @@ export default function Markets() {
       return;
     }
     setDrillLoading(true);
-    api.getDrilldown({ competitor: loanDrillLevel, pct: showPct ? 'true' : 'false' })
+    api.getDrilldown({ competitor: loanDrillLevel })
       .then(setDrillData)
       .finally(() => setDrillLoading(false));
-  }, [loanDrillLevel, showPct]);
+  }, [loanDrillLevel]);
 
   // Pivot comparison data by date
   const chartData = useMemo(() => {
@@ -283,11 +282,7 @@ export default function Markets() {
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BANK_COLORS[loanDrillLevel] }} />
                 {BANK_LABELS[loanDrillLevel]} — Loan Breakdown
               </span>
-              <button onClick={() => setShowPct(!showPct)}
-                className={cn('ml-auto px-2 py-0.5 rounded text-[9px] font-black uppercase border transition-all',
-                  showPct ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200')}>
-                {showPct ? '% Share' : 'mio CZK'}
-              </button>
+              <span className="ml-auto text-[9px] font-bold text-slate-400">mio CZK</span>
             </div>
           )}
 
@@ -305,10 +300,10 @@ export default function Markets() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
                     <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
-                      tickFormatter={(v: number) => showPct ? `${(v * 100).toFixed(0)}%` : fmtVal(v)} />
+                      tickFormatter={fmtVal} />
                     <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
                       labelFormatter={(d) => fmtQ(String(d))}
-                      formatter={(value: any, name: any) => [showPct ? `${(Number(value) * 100).toFixed(1)}%` : `${Number(value).toLocaleString('cs-CZ')} mio CZK`, name]} />
+                      formatter={(value: any, name: any) => [`${Number(value).toLocaleString('cs-CZ')} mio CZK`, name]} />
                     <Legend formatter={(v: string) => <span className="text-[8px] font-bold">{v}</span>} />
                     {drillCategories.map((cat, i) => (
                       <Area key={cat} type="monotone" dataKey={cat} stackId="1" stroke={DRILLDOWN_COLORS[i % DRILLDOWN_COLORS.length]} fill={DRILLDOWN_COLORS[i % DRILLDOWN_COLORS.length]} fillOpacity={0.7} />
@@ -404,7 +399,7 @@ export default function Markets() {
                       </td>
                       {drillChartData.map((d) => (
                         <td key={d.date} className="px-3 py-2.5 text-right font-mono text-slate-700">
-                          {d[cat] != null ? (showPct ? `${(Number(d[cat]) * 100).toFixed(1)}%` : Number(d[cat]).toLocaleString('cs-CZ')) : '—'}
+                          {d[cat] != null ? Number(d[cat]).toLocaleString('cs-CZ') : '—'}
                         </td>
                       ))}
                     </tr>
