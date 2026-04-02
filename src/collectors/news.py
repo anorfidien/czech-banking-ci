@@ -146,11 +146,12 @@ class NewsCollector(BaseCollector):
                 except (ValueError, TypeError):
                     pass
 
-            score, tags = self._analyze_article(title, summary)
+            score, tags, reason = self._analyze_article(title, summary)
 
             # Boost score for critical/high-priority feeds
             if feed_priority == "critical" and score < 4:
                 score = min(score + 1, 5)
+                reason = f"{reason}; boosted by {feed_name} (critical source)"
 
             # Add feed source tag
             if feed_category:
@@ -172,6 +173,7 @@ class NewsCollector(BaseCollector):
                     "feed_url": rss_url,
                     "feed_category": feed_category,
                     "published_raw": published,
+                    "priority_reason": reason,
                 },
             )
             signals.append(signal)
@@ -179,19 +181,25 @@ class NewsCollector(BaseCollector):
         logger.info("Found %d articles from %s", len(signals), feed_name)
         return signals
 
-    def _analyze_article(self, title: str, summary: str) -> tuple[int, list[str]]:
+    def _analyze_article(self, title: str, summary: str) -> tuple[int, list[str], str]:
         text = f"{title} {summary}".lower()
         tags = ["news"]
 
-        if any(kw in text for kw in HIGH_KEYWORDS):
+        high_hits = [kw for kw in HIGH_KEYWORDS if kw in text]
+        med_hits = [kw for kw in MEDIUM_KEYWORDS if kw in text]
+
+        if high_hits:
             score = 4
-        elif any(kw in text for kw in MEDIUM_KEYWORDS):
+            reason = f"High: matched [{', '.join(high_hits)}]"
+        elif med_hits:
             score = 3
+            reason = f"Medium: matched [{', '.join(med_hits)}]"
         else:
             score = 2
+            reason = "Low: no priority keywords matched"
 
         for category, keywords in CATEGORY_MAP.items():
             if any(kw in text for kw in keywords):
                 tags.append(category)
 
-        return score, tags
+        return score, tags, reason

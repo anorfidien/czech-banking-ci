@@ -253,6 +253,12 @@ function SignalRow({
                 )}
               </div>
               <div className="col-span-4 space-y-3">
+                {(sig.metadata as any)?.priority_reason && (
+                  <div>
+                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Priority Reason</div>
+                    <p className="text-[10px] font-bold text-slate-600">{(sig.metadata as any).priority_reason}</p>
+                  </div>
+                )}
                 {sig.url && (
                   <div>
                     <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Source URL</div>
