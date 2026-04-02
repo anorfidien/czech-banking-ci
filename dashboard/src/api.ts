@@ -38,4 +38,7 @@ export const api = {
   }) => get<any[]>(`${BASE}/metrics`, params),
 
   getMetricsSeries: () => get<any[]>(`${BASE}/metrics/series`),
+
+  getDrilldown: (params: { competitor: string; pct?: string }) =>
+    get<any[]>(`${BASE}/metrics/drilldown`, params),
 };

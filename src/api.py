@@ -154,6 +154,31 @@ def create_app(db_path: str | None = None) -> Flask:
         finally:
             db.close()
 
+    @app.route("/api/metrics/drilldown")
+    def api_metrics_drilldown():
+        """Get loan drill-down data for a specific bank."""
+        db = get_db()
+        try:
+            comp = request.args.get("competitor")
+            pct = request.args.get("pct", "false") == "true"
+            if not comp:
+                return jsonify([])
+            suffix = "_pct" if pct else ""
+            # Get all loan drilldown series for this bank (exclude totals/subtotals)
+            rows = db.conn.execute(
+                f"""SELECT series_id, series_name, date, value, unit
+                    FROM metrics
+                    WHERE category = 'loan_drilldown'
+                      AND competitor_id = ?
+                      AND series_id LIKE ?
+                      AND series_id NOT LIKE '%total%'
+                    ORDER BY date, series_name""",
+                (comp, f"loan_{comp}_%{suffix}"),
+            ).fetchall()
+            return jsonify([dict(r) for r in rows])
+        finally:
+            db.close()
+
     # ── Static file serving (production) ─────────────────────
 
     @app.route("/", defaults={"path": ""})
