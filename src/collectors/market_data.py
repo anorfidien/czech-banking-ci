@@ -120,9 +120,7 @@ def import_financials(db: Database, excel_path: str) -> int:
     if "loan_drill_down" in wb.sheetnames:
         total += _import_loan_drilldown(db, wb["loan_drill_down"])
 
-    # Sheet 3: detailed_values (QTD P&L per bank)
-    if "detailed_values" in wb.sheetnames:
-        total += _import_detailed_values(db, wb["detailed_values"])
+    # Sheet 3: detailed_values — skipped (different reporting entities than values sheet)
 
     wb.close()
     logger.info("Total imported: %d data points", total)
