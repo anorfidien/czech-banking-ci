@@ -131,6 +131,7 @@ export default function Signals() {
             { value: 'retail', label: 'Retail' },
             { value: 'corporate', label: 'Corporate' },
             { value: 'sme', label: 'SME' },
+            { value: 'regulatory', label: 'Regulatory' },
             { value: 'general', label: 'General' },
           ]}
         />
@@ -341,6 +342,7 @@ const SEGMENT_STYLES: Record<string, string> = {
   retail: 'bg-blue-50 text-blue-700 border-blue-200',
   corporate: 'bg-purple-50 text-purple-700 border-purple-200',
   sme: 'bg-amber-50 text-amber-700 border-amber-200',
+  regulatory: 'bg-red-50 text-red-700 border-red-200',
   general: 'bg-slate-50 text-slate-500 border-slate-200',
 };
 

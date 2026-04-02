@@ -23,7 +23,8 @@ SEGMENT_KEYWORDS = {
         "mobilní bankovnictví", "mobile banking", "spoření", "savings",
         "pojištění", "insurance", "penzijní", "pension", "půjčka", "loan",
         "úvěr", "credit", "nps", "digital", "aplikace", "app",
-        "pobočka", "branch", "bankomat", "atm",
+        "pobočka", "branch", "bankomat", "atm", "investiční produkt",
+        "dlouhodobý investiční", "dip",
     ],
     "corporate": [
         "corporate", "korporátní", "firemní", "enterprise", "trade finance",
@@ -31,12 +32,20 @@ SEGMENT_KEYWORDS = {
         "investiční bankovnictví", "investment banking", "emise", "bond",
         "akvizice", "acquisition", "fúze", "merger", "m&a", "ipo",
         "capital markets", "kapitálový trh", "treasury",
+        "sídlo", "headquarters", "přesun", "vedení", "představenstvo", "board",
+        "výroční zpráva", "annual report", "výroční finanční",
+        "ppf", "group", "holding",
     ],
     "sme": [
         "sme", "msp", "malé podniky", "střední podniky", "small business",
         "podnikatel", "živnostník", "entrepreneur", "freelance",
         "firemní účet", "business account", "leasing", "faktoring", "factoring",
         "provozní úvěr", "working capital",
+    ],
+    "regulatory": [
+        "baseline", "ares", "justice", "čnb", "cnb", "regulat",
+        "licence", "dohled", "supervision", "liquidity", "monetary policy",
+        "pokuta", "sankce",
     ],
 }
 
