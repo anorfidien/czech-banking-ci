@@ -11,7 +11,7 @@ export default function SeverityBadge({ severity }: { severity: number }) {
       )}
     >
       <span className={cn('w-1.5 h-1.5 rounded-full', style.dot)} />
-      {severity}
+      {style.label}
     </span>
   );
 }

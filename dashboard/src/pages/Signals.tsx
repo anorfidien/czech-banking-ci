@@ -102,10 +102,14 @@ export default function Signals() {
           options={competitors.map((c) => ({ value: c, label: c }))}
         />
         <FilterSelect
-          label="Min Severity"
+          label="Priority"
           value={filterSeverity}
           onChange={setFilterSeverity}
-          options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `>= ${n}` }))}
+          options={[
+            { value: '2', label: 'Low+' },
+            { value: '3', label: 'Medium+' },
+            { value: '4', label: 'High' },
+          ]}
         />
         <FilterSelect
           label="Segment"
@@ -163,7 +167,7 @@ export default function Signals() {
                   className="px-6 py-4 font-black uppercase tracking-widest text-center cursor-pointer hover:text-slate-900 transition-colors"
                   onClick={() => handleSort('severity')}
                 >
-                  <span className="flex items-center gap-1 justify-center">Sev <SortIcon column="severity" /></span>
+                  <span className="flex items-center gap-1 justify-center">Priority <SortIcon column="severity" /></span>
                 </th>
                 <th className="px-6 py-4 font-black uppercase tracking-widest text-center w-10" />
               </tr>

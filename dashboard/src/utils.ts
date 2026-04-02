@@ -6,18 +6,15 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const SEVERITY_COLORS: Record<number, { bg: string; text: string; dot: string; label: string }> = {
-  1: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Low' },
-  2: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500', label: 'Info' },
+  2: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Low' },
   3: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: 'Medium' },
   4: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'High' },
-  5: { bg: 'bg-red-100', text: 'text-red-900', dot: 'bg-red-700', label: 'Critical' },
 };
 
 export const SOURCE_LABELS: Record<string, string> = {
   ares: 'ARES',
   job_postings: 'Jobs',
   news: 'News',
-  google_news: 'Google News',
 };
 
 export function formatDate(iso: string | null): string {
