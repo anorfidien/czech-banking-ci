@@ -8,7 +8,11 @@ sources:
   careers_search_name: UniCredit Bank
   pricing_url: https://www.unicreditbank.cz/cs/sazebniky.html
   website_urls:
+  - https://www.unicreditbank.cz/
   - https://www.unicreditbank.cz/cs/obcane.html
+  - https://www.unicreditbank.cz/cs/firmy.html
+  - https://www.unicreditbank.cz/cs/o-bance.html
+  - https://www.unicreditbank.cz/cs/sazebniky.html
 monitoring:
   priority: medium
 aliases:

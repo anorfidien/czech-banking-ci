@@ -9,6 +9,8 @@ sources:
   pricing_url: https://www.fio.cz/bankovni-sluzby/sazebnik
   website_urls:
   - https://www.fio.cz/
+  - https://www.fio.cz/o-nas
+  - https://www.fio.cz/bankovni-sluzby/sazebnik
 monitoring:
   priority: medium
 aliases:

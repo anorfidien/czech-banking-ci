@@ -9,6 +9,9 @@ sources:
   pricing_url: https://www.airbank.cz/sazebnik/
   website_urls:
   - https://www.airbank.cz/
+  - https://www.airbank.cz/o-air-bank/
+  - https://www.airbank.cz/sazebnik/
+  - https://www.airbank.cz/kariera/
 monitoring:
   priority: medium
 aliases:

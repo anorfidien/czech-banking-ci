@@ -14,6 +14,10 @@ sources:
   careers_search_name: Česká spořitelna
   pricing_url: https://www.csas.cz/cs/osobni-finance/sazebnik
   website_urls:
+  - https://www.csas.cz/
   - https://www.csas.cz/cs/osobni-finance
+  - https://www.csas.cz/cs/firmy-a-podnikatele
+  - https://www.csas.cz/cs/o-nas
+  - https://www.csas.cz/cs/osobni-finance/sazebnik
 monitoring:
   priority: high

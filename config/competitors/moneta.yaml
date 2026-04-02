@@ -9,6 +9,10 @@ sources:
   pricing_url: https://www.moneta.cz/sazebniky-a-dokumenty
   website_urls:
   - https://www.moneta.cz/
+  - https://www.moneta.cz/lide
+  - https://www.moneta.cz/podnikatele-a-firmy
+  - https://www.moneta.cz/o-nas
+  - https://www.moneta.cz/sazebniky-a-dokumenty
 monitoring:
   priority: medium
 aliases:

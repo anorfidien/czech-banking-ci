@@ -6,6 +6,7 @@ sources:
   ares_ico: '14893649'
   website_urls:
   - https://www.partnersbank.cz/
+  - https://www.partnersbank.cz/o-nas
 monitoring:
   priority: medium
 aliases:

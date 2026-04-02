@@ -8,7 +8,11 @@ sources:
   careers_search_name: Komerční banka
   pricing_url: https://www.kb.cz/cs/sazebniky
   website_urls:
+  - https://www.kb.cz/
   - https://www.kb.cz/cs/obcane
+  - https://www.kb.cz/cs/firmy-a-podnikatele
+  - https://www.kb.cz/cs/o-bance
+  - https://www.kb.cz/cs/sazebniky
 monitoring:
   priority: high
 aliases:

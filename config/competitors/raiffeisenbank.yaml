@@ -8,7 +8,11 @@ sources:
   careers_search_name: Raiffeisenbank
   pricing_url: https://www.rb.cz/sazebnik
   website_urls:
+  - https://www.rb.cz/
   - https://www.rb.cz/osobni
+  - https://www.rb.cz/firmy
+  - https://www.rb.cz/o-nas
+  - https://www.rb.cz/sazebnik
 monitoring:
   priority: medium
 aliases:
