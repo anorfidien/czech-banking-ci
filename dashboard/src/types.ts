@@ -14,6 +14,7 @@ export interface Signal {
   is_new: number;
   change_summary: string | null;
   content_hash: string;
+  segment: string;
 }
 
 export interface Competitor {

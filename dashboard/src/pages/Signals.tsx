@@ -14,6 +14,7 @@ export default function Signals() {
   const [filterSource, setFilterSource] = useState('');
   const [filterCompetitor, setFilterCompetitor] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('');
+  const [filterSegment, setFilterSegment] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState<'detected_at' | 'severity' | 'competitor_id'>('detected_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -30,6 +31,7 @@ export default function Signals() {
     if (filterSource) result = result.filter((s) => s.source === filterSource);
     if (filterCompetitor) result = result.filter((s) => s.competitor_id === filterCompetitor);
     if (filterSeverity) result = result.filter((s) => s.severity >= Number(filterSeverity));
+    if (filterSegment) result = result.filter((s) => s.segment === filterSegment);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -63,7 +65,7 @@ export default function Signals() {
       sortDir === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />
     ) : null;
 
-  const hasFilters = filterSource || filterCompetitor || filterSeverity || searchQuery;
+  const hasFilters = filterSource || filterCompetitor || filterSeverity || filterSegment || searchQuery;
 
   if (loading) {
     return (
@@ -105,12 +107,24 @@ export default function Signals() {
           onChange={setFilterSeverity}
           options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `>= ${n}` }))}
         />
+        <FilterSelect
+          label="Segment"
+          value={filterSegment}
+          onChange={setFilterSegment}
+          options={[
+            { value: 'retail', label: 'Retail' },
+            { value: 'corporate', label: 'Corporate' },
+            { value: 'sme', label: 'SME' },
+            { value: 'general', label: 'General' },
+          ]}
+        />
         {hasFilters && (
           <button
             onClick={() => {
               setFilterSource('');
               setFilterCompetitor('');
               setFilterSeverity('');
+              setFilterSegment('');
               setSearchQuery('');
             }}
             className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
@@ -143,6 +157,7 @@ export default function Signals() {
                 </th>
                 <th className="px-6 py-4 font-black uppercase tracking-widest">Source</th>
                 <th className="px-6 py-4 font-black uppercase tracking-widest">Type</th>
+                <th className="px-6 py-4 font-black uppercase tracking-widest">Segment</th>
                 <th className="px-6 py-4 font-black uppercase tracking-widest">Title</th>
                 <th
                   className="px-6 py-4 font-black uppercase tracking-widest text-center cursor-pointer hover:text-slate-900 transition-colors"
@@ -156,7 +171,7 @@ export default function Signals() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">
+                  <td colSpan={8} className="px-6 py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">
                     No signals match your filters
                   </td>
                 </tr>
@@ -206,6 +221,9 @@ function SignalRow({
           </span>
         </td>
         <td className="px-6 py-3.5 text-slate-500">{sig.signal_type}</td>
+        <td className="px-6 py-3.5">
+          <SegmentBadge segment={sig.segment} />
+        </td>
         <td className="px-6 py-3.5 font-bold text-slate-900 max-w-[400px] truncate">{sig.title}</td>
         <td className="px-6 py-3.5 text-center">
           <SeverityBadge severity={sig.severity} />
@@ -216,7 +234,7 @@ function SignalRow({
       </tr>
       {expanded && (
         <tr className="bg-slate-50/50">
-          <td colSpan={7} className="px-6 py-5">
+          <td colSpan={8} className="px-6 py-5">
             <div className="grid grid-cols-12 gap-6 text-[10px]">
               <div className="col-span-8">
                 <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Content</div>
@@ -296,5 +314,20 @@ function FilterSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+const SEGMENT_STYLES: Record<string, string> = {
+  retail: 'bg-blue-50 text-blue-700 border-blue-200',
+  corporate: 'bg-purple-50 text-purple-700 border-purple-200',
+  sme: 'bg-amber-50 text-amber-700 border-amber-200',
+  general: 'bg-slate-50 text-slate-500 border-slate-200',
+};
+
+function SegmentBadge({ segment }: { segment: string }) {
+  return (
+    <span className={cn('px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border', SEGMENT_STYLES[segment] || SEGMENT_STYLES.general)}>
+      {segment}
+    </span>
   );
 }

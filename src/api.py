@@ -15,6 +15,41 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).parent.parent
 DASHBOARD_DIST = PROJECT_ROOT / "dashboard" / "dist"
 
+# ── Signal segment classifier ───────────────────────────────
+SEGMENT_KEYWORDS = {
+    "retail": [
+        "retail", "hypotéka", "hypoteční", "mortgage", "spotřebitel", "consumer",
+        "osobní", "personal", "klient", "karta", "card", "účet", "account",
+        "mobilní bankovnictví", "mobile banking", "spoření", "savings",
+        "pojištění", "insurance", "penzijní", "pension", "půjčka", "loan",
+        "úvěr", "credit", "nps", "digital", "aplikace", "app",
+        "pobočka", "branch", "bankomat", "atm",
+    ],
+    "corporate": [
+        "corporate", "korporátní", "firemní", "enterprise", "trade finance",
+        "syndikace", "syndication", "projektové financování", "project finance",
+        "investiční bankovnictví", "investment banking", "emise", "bond",
+        "akvizice", "acquisition", "fúze", "merger", "m&a", "ipo",
+        "capital markets", "kapitálový trh", "treasury",
+    ],
+    "sme": [
+        "sme", "msp", "malé podniky", "střední podniky", "small business",
+        "podnikatel", "živnostník", "entrepreneur", "freelance",
+        "firemní účet", "business account", "leasing", "faktoring", "factoring",
+        "provozní úvěr", "working capital",
+    ],
+}
+
+
+def _classify_segment(title: str, content: str, tags: list) -> str:
+    """Classify a signal into retail/corporate/sme/general."""
+    text = f"{title} {content} {' '.join(tags)}".lower()
+    scores = {}
+    for segment, keywords in SEGMENT_KEYWORDS.items():
+        scores[segment] = sum(1 for kw in keywords if kw in text)
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else "general"
+
 
 def create_app(db_path: str | None = None) -> Flask:
     app = Flask(__name__, static_folder=None)
@@ -39,11 +74,17 @@ def create_app(db_path: str | None = None) -> Flask:
                 since=request.args.get("since"),
                 limit=int(request.args.get("limit", 200)),
             )
-            # Parse JSON fields
+            # Parse JSON fields + classify segment
+            segment_filter = request.args.get("segment")
+            result = []
             for sig in signals:
                 sig["tags"] = _parse_json_field(sig.get("tags", "[]"))
                 sig["metadata"] = _parse_json_field(sig.get("metadata", "{}"))
-            return jsonify(signals)
+                sig["segment"] = _classify_segment(sig["title"], sig.get("content", ""), sig["tags"])
+                if segment_filter and sig["segment"] != segment_filter:
+                    continue
+                result.append(sig)
+            return jsonify(result)
         finally:
             db.close()
 
@@ -110,6 +151,7 @@ def create_app(db_path: str | None = None) -> Flask:
             recent = db.get_signals(limit=15)
             for sig in recent:
                 sig["tags"] = _parse_json_field(sig.get("tags", "[]"))
+                sig["segment"] = _classify_segment(sig["title"], sig.get("content", ""), sig["tags"])
 
             # Signal volume by day (last 30 days)
             timeline = db.conn.execute("""
