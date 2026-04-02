@@ -195,9 +195,30 @@ export default function Markets() {
     setSelectedBanks((p) => p.includes(b) ? p.filter((x) => x !== b) : [...p, b]);
   }, []);
 
+  const isPercent = metricUnit === '%';
+
   const fmtQ = (d: string) => { const [y, m] = d.split('-'); return `Q${Math.ceil(Number(m) / 3)}/${y.slice(2)}`; };
-  const fmtVal = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(1);
-  const fmtCell = (v: number, pct: boolean) => pct ? `${v.toFixed(1)}%` : Math.round(v).toLocaleString('cs-CZ');
+
+  // Format for Y-axis ticks
+  const fmtAxis = (v: number) => {
+    if (showMarketShare) return `${v.toFixed(0)}%`;
+    if (isPercent) return `${(v * 100).toFixed(0)}%`;
+    return v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(1);
+  };
+
+  // Format for table cells and tooltips
+  const fmtCell = (v: number) => {
+    if (showMarketShare) return `${v.toFixed(1)}%`;
+    if (isPercent) return `${(v * 100).toFixed(1)}%`;
+    return Math.round(v).toLocaleString('cs-CZ');
+  };
+
+  // Format for tooltip with unit
+  const fmtTooltip = (v: number) => {
+    if (showMarketShare) return `${Number(v).toFixed(1)}%`;
+    if (isPercent) return `${(Number(v) * 100).toFixed(1)}%`;
+    return `${Math.round(Number(v)).toLocaleString('cs-CZ')} ${metricUnit}`;
+  };
 
   const activeData = showMarketShare ? shareData : chartData;
 
@@ -300,10 +321,10 @@ export default function Markets() {
                   <AreaChart data={ddChart} margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
-                    <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60} tickFormatter={fmtVal} />
+                    <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60} tickFormatter={fmtAxis} />
                     <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
                       labelFormatter={(d) => fmtQ(String(d))}
-                      formatter={(value: any, name: any) => [`${Math.round(Number(value)).toLocaleString('cs-CZ')} ${metricUnit}`, name]} />
+                      formatter={(value: any, name: any) => [fmtTooltip(value), name]} />
                     <Legend formatter={(v: string) => <span className="text-[8px] font-bold">{v}</span>} />
                     {ddCats.map((cat, i) => (
                       <Area key={cat} type="monotone" dataKey={cat} stackId="1" stroke={DRILLDOWN_COLORS[i % DRILLDOWN_COLORS.length]} fill={DRILLDOWN_COLORS[i % DRILLDOWN_COLORS.length]} fillOpacity={0.7} />
@@ -320,10 +341,10 @@ export default function Markets() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
                   <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
-                    tickFormatter={(v: number) => showMarketShare ? `${v.toFixed(0)}%` : fmtVal(v)} />
+                    tickFormatter={fmtAxis} />
                   <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
                     labelFormatter={(d) => fmtQ(String(d))}
-                    formatter={(value: any, name: any) => [fmtCell(Number(value), showMarketShare) + (!showMarketShare ? ` ${metricUnit}` : ''), BANK_LABELS[name] || name]} />
+                    formatter={(value: any, name: any) => [fmtTooltip(value), BANK_LABELS[name] || name]} />
                   <Legend formatter={(v: string) => <span className="text-[9px] font-bold uppercase">{BANK_LABELS[v] || v}</span>} />
                   {selectedBanks.map((b) => (
                     <Line key={b} type="monotone" dataKey={b} stroke={BANK_COLORS[b]} strokeWidth={b === 'raiffeisenbank' ? 3 : 2} dot={{ r: 3 }} connectNulls />
@@ -340,9 +361,9 @@ export default function Markets() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="bank" tick={{ fontSize: 9, fontWeight: 900, fill: '#334155' }} axisLine={{ stroke: '#e2e8f0' }} angle={-35} textAnchor="end" interval={0} />
                   <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
-                    tickFormatter={(v: number) => showMarketShare ? `${v.toFixed(0)}%` : fmtVal(v)} />
+                    tickFormatter={fmtAxis} />
                   <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                    formatter={(value: any) => [fmtCell(Number(value), showMarketShare) + (!showMarketShare ? ` ${metricUnit}` : ''), metricInfo.label]} />
+                    formatter={(value: any) => [fmtTooltip(value), metricInfo.label]} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40} fill="#fee600" />
                 </BarChart>
               </ResponsiveContainer>
@@ -420,7 +441,7 @@ export default function Markets() {
                       </td>
                       {activeData.map((d) => (
                         <td key={d.date} className="px-3 py-2.5 text-right font-mono text-slate-700">
-                          {d[b] != null ? fmtCell(Number(d[b]), showMarketShare) : '—'}
+                          {d[b] != null ? fmtCell(Number(d[b])) : '—'}
                         </td>
                       ))}
                     </tr>
