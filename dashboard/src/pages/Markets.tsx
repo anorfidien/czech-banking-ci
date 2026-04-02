@@ -84,6 +84,7 @@ export default function Markets() {
   const [loanDrillLevel, setLoanDrillLevel] = useState<string | null>(null);
   const [drillData, setDrillData] = useState<any[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
+  const [showMarketShare, setShowMarketShare] = useState(false);
 
   const HIDDEN_CATEGORIES = useMemo(() => new Set(['loan_drilldown', 'loans_growth']), []);
 
@@ -155,6 +156,21 @@ export default function Markets() {
     }
     return [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   }, [metricsData]);
+
+  // Market share version: convert absolute to % of total per date
+  const marketShareData = useMemo(() => {
+    return chartData.map((row) => {
+      const out: Record<string, any> = { date: row.date };
+      let total = 0;
+      for (const bankId of selectedBanks) {
+        total += (row[bankId] as number) || 0;
+      }
+      for (const bankId of selectedBanks) {
+        out[bankId] = total > 0 ? ((row[bankId] as number) || 0) / total * 100 : 0;
+      }
+      return out;
+    });
+  }, [chartData, selectedBanks]);
 
   // Pivot drill-down data
   const { drillChartData, drillCategories } = useMemo(() => {
@@ -262,7 +278,20 @@ export default function Markets() {
             </div>
             <div className="flex items-center gap-3">
               {isLoanMode && !loanDrillLevel && (
-                <span className="text-[9px] font-bold text-slate-400 uppercase">Market share · click a bank below to drill down</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1 bg-slate-100 rounded p-1">
+                    <button onClick={() => setShowMarketShare(false)}
+                      className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
+                        !showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
+                      mio CZK
+                    </button>
+                    <button onClick={() => setShowMarketShare(true)}
+                      className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
+                        showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
+                      % Share
+                    </button>
+                  </div>
+                </div>
               )}
               {!isLoanMode && (
                 <div className="flex gap-1 bg-slate-100 rounded p-1">
@@ -316,20 +345,24 @@ export default function Markets() {
             ) : chartData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-[10px] font-black uppercase tracking-widest text-slate-300">No data</div>
             ) : isLoanMode ? (
-              /* LOANS: stacked area — market share view */
+              /* LOANS: line chart — absolute or % market share */
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
+                <LineChart data={showMarketShare ? marketShareData : chartData} margin={{ top: 5, right: 20, bottom: 20, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
-                  <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60} tickFormatter={fmtVal} />
+                  <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
+                    tickFormatter={(v: number) => showMarketShare ? `${v.toFixed(0)}%` : fmtVal(v)} />
                   <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
                     labelFormatter={(d) => fmtQ(String(d))}
-                    formatter={(value: any, name: any) => [`${Number(value).toLocaleString('cs-CZ')} mio CZK`, BANK_LABELS[name] || name]} />
+                    formatter={(value: any, name: any) => [
+                      showMarketShare ? `${Number(value).toFixed(1)}%` : `${Number(value).toLocaleString('cs-CZ')} mio CZK`,
+                      BANK_LABELS[name] || name,
+                    ]} />
                   <Legend formatter={(v: string) => <span className="text-[9px] font-bold uppercase">{BANK_LABELS[v] || v}</span>} />
                   {selectedBanks.map((bankId) => (
-                    <Area key={bankId} type="monotone" dataKey={bankId} stackId="1" stroke={BANK_COLORS[bankId]} fill={BANK_COLORS[bankId]} fillOpacity={0.75} />
+                    <Line key={bankId} type="monotone" dataKey={bankId} stroke={BANK_COLORS[bankId]} strokeWidth={bankId === 'raiffeisenbank' ? 3 : 2} dot={{ r: 3 }} connectNulls />
                   ))}
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             ) : chartMode === 'line' ? (
               /* COMPARISON: line chart */
@@ -423,7 +456,9 @@ export default function Markets() {
                     </tr>
                   ))
                 ) : (
-                  selectedBanks.map((bankId) => (
+                  selectedBanks.map((bankId) => {
+                    const tableRows = (isLoanMode && showMarketShare) ? marketShareData : chartData;
+                    return (
                     <tr key={bankId} className="border-b border-slate-50 hover:bg-yellow-50/30 transition-colors">
                       <td className="px-4 py-2.5 sticky left-0 bg-white">
                         <div className="flex items-center gap-2">
@@ -431,13 +466,17 @@ export default function Markets() {
                           <span className={cn('font-black text-slate-900', bankId === 'raiffeisenbank' && 'text-[#b8960a]')}>{BANK_LABELS[bankId]}</span>
                         </div>
                       </td>
-                      {chartData.map((d) => (
+                      {tableRows.map((d) => (
                         <td key={d.date} className="px-3 py-2.5 text-right font-mono text-slate-700">
-                          {d[bankId] != null ? Number(d[bankId]).toLocaleString('cs-CZ', { maximumFractionDigits: 1 }) : '—'}
+                          {d[bankId] != null
+                            ? (isLoanMode && showMarketShare)
+                              ? `${Number(d[bankId]).toFixed(1)}%`
+                              : Number(d[bankId]).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })
+                            : '—'}
                         </td>
                       ))}
                     </tr>
-                  ))
+                  );})
                 )}
               </tbody>
             </table>
