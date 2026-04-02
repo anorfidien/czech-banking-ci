@@ -39,6 +39,8 @@ export const api = {
 
   getMetricsSeries: () => get<any[]>(`${BASE}/metrics/series`),
 
-  getDrilldown: (params: { competitor: string; pct?: string }) =>
+  getDrilldown: (params: { competitor: string; parent: string }) =>
     get<any[]>(`${BASE}/metrics/drilldown`, params),
+
+  getDrilldownConfig: () => get<Record<string, string[]>>(`${BASE}/metrics/drilldowns`),
 };

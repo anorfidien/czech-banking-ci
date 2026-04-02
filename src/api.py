@@ -154,52 +154,101 @@ def create_app(db_path: str | None = None) -> Flask:
         finally:
             db.close()
 
+    # ── Drill-down definitions ─────────────────────────────────
+    # parent_series_id -> list of (child_series_id, display_label)
+    DRILLDOWNS = {
+        "loans_total": {
+            "children": [
+                ("loans_retail", "Retail Loans"),
+                ("loans_commercial", "Commercial Loans"),
+                ("mortgages", "Mortgages"),
+            ],
+            "compute_other": True,
+        },
+        "op_income_ytd": {
+            "children": [
+                ("nii_ytd", "NII"),
+                ("net_fees_ytd", "Net Fees & Commissions"),
+                ("other_op_result_ytd", "Other Operating Result"),
+            ],
+            "compute_other": False,
+        },
+        "op_expense_ytd": {
+            "children": [
+                ("perex_ytd", "Personnel Expense"),
+                ("gae_ytd", "GAE"),
+                ("depreciation_ytd", "Depreciation & Amortisation"),
+                ("reg_charges_ytd", "Regulatory Charges"),
+            ],
+            "compute_other": False,
+        },
+        "total_assets": {
+            "children": [
+                ("loans_to_customers", "Loans to Customers"),
+                ("loans_to_banks", "Loans to Banks"),
+                ("debt_securities", "Debt Securities"),
+                ("intangible_assets", "Intangible Assets"),
+            ],
+            "compute_other": True,
+        },
+        "total_liabilities": {
+            "children": [
+                ("customer_deposits", "Customer Deposits"),
+                ("deposits_from_banks", "Deposits from Banks"),
+            ],
+            "compute_other": True,
+        },
+        "nii_ytd": {
+            "children": [
+                ("interest_income_ytd", "Interest Income"),
+                ("interest_expense_ytd", "Interest Expense"),
+            ],
+            "compute_other": False,
+        },
+    }
+
     @app.route("/api/metrics/drilldown")
     def api_metrics_drilldown():
-        """Get loan drill-down: Retail, Commercial, Mortgages, Other per bank."""
+        """Generic drill-down: break a parent metric into its children."""
         db = get_db()
         try:
             comp = request.args.get("competitor")
-            if not comp:
+            parent = request.args.get("parent", "loans_total")
+            if not comp or parent not in DRILLDOWNS:
                 return jsonify([])
 
-            # Get the 3 main loan sub-categories for this bank
-            retail = db.get_metrics(series_id="loans_retail", competitor_id=comp)
-            commercial = db.get_metrics(series_id="loans_commercial", competitor_id=comp)
-            mortgages = db.get_metrics(series_id="mortgages", competitor_id=comp)
-            total = db.get_metrics(series_id="loans_total", competitor_id=comp)
-
-            # Build "Other" = Total - Retail - Commercial
-            total_by_date = {r["date"]: r["value"] for r in total}
-            retail_by_date = {r["date"]: r["value"] for r in retail}
-            commercial_by_date = {r["date"]: r["value"] for r in commercial}
-
+            config = DRILLDOWNS[parent]
             result = []
-            for r in retail:
-                result.append({**r, "series_name": "Retail Loans", "series_id": "retail"})
-            for r in commercial:
-                result.append({**r, "series_name": "Commercial Loans", "series_id": "commercial"})
-            for r in mortgages:
-                result.append({**r, "series_name": "Mortgages", "series_id": "mortgages"})
+            child_sums: dict[str, float] = {}  # date -> sum of children
 
-            # Compute Other
-            for date, tot in total_by_date.items():
-                ret = retail_by_date.get(date, 0)
-                com = commercial_by_date.get(date, 0)
-                other = tot - ret - com
-                if other > 0:
-                    result.append({
-                        "series_id": "other",
-                        "series_name": "Other",
-                        "date": date,
-                        "value": other,
-                        "unit": "mio CZK",
-                        "competitor_id": comp,
-                    })
+            for child_id, label in config["children"]:
+                rows = db.get_metrics(series_id=child_id, competitor_id=comp)
+                for r in rows:
+                    result.append({**r, "series_name": label, "series_id": child_id})
+                    child_sums[r["date"]] = child_sums.get(r["date"], 0) + r["value"]
+
+            if config.get("compute_other"):
+                parent_rows = db.get_metrics(series_id=parent, competitor_id=comp)
+                for r in parent_rows:
+                    other = r["value"] - child_sums.get(r["date"], 0)
+                    if abs(other) > 0.5:
+                        result.append({
+                            "series_id": "other",
+                            "series_name": "Other",
+                            "date": r["date"],
+                            "value": other,
+                            "unit": r.get("unit", "mio CZK"),
+                            "competitor_id": comp,
+                        })
 
             return jsonify(sorted(result, key=lambda x: (x["date"], x["series_name"])))
         finally:
             db.close()
+
+    @app.route("/api/metrics/drilldowns")
+    def api_drilldown_config():
+        """Return which metrics support drill-down."""
+        return jsonify({k: [c[1] for c in v["children"]] for k, v in DRILLDOWNS.items()})
 
     # ── Static file serving (production) ─────────────────────
 

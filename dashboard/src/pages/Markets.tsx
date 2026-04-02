@@ -14,139 +14,133 @@ interface SeriesInfo {
   unit: string | null;
   competitor_id: string | null;
   points: number;
-  first_date: string;
-  last_date: string;
 }
 
 const BANK_COLORS: Record<string, string> = {
-  raiffeisenbank: '#eab308',
-  ceska_sporitelna: '#3b82f6',
-  csob: '#10b981',
-  komercni_banka: '#ef4444',
-  moneta: '#a855f7',
-  fio_banka: '#22c55e',
-  unicredit: '#f97316',
+  raiffeisenbank: '#eab308', ceska_sporitelna: '#3b82f6', csob: '#10b981',
+  komercni_banka: '#ef4444', moneta: '#a855f7', fio_banka: '#22c55e', unicredit: '#f97316',
 };
-
 const BANK_LABELS: Record<string, string> = {
-  raiffeisenbank: 'Raiffeisenbank',
-  ceska_sporitelna: 'Česká spořitelna',
-  csob: 'ČSOB',
-  komercni_banka: 'Komerční banka',
-  moneta: 'Moneta',
-  fio_banka: 'Fio banka',
-  unicredit: 'UniCredit',
+  raiffeisenbank: 'Raiffeisenbank', ceska_sporitelna: 'Česká spořitelna', csob: 'ČSOB',
+  komercni_banka: 'Komerční banka', moneta: 'Moneta', fio_banka: 'Fio banka', unicredit: 'UniCredit',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  profitability: 'Profitability',
-  income: 'Income',
-  nii: 'Net Interest Income',
-  loans: 'Loans',
-  balance_sheet: 'Balance Sheet',
-  expenses: 'Expenses',
-  operations: 'Operations',
-  efficiency: 'Efficiency',
-  regulatory: 'Regulatory',
-  risk: 'Risk',
-  detailed_profitability: 'Detailed P&L',
-  detailed_income: 'Detailed Income',
-  detailed_expenses: 'Detailed Expenses',
-  detailed_balance_sheet: 'Detailed BS',
-  detailed_loans: 'Detailed Loans',
-  detailed_nii: 'Detailed NII',
-  detailed_risk: 'Detailed Risk',
-  other: 'Other',
-};
-
-// Single loan metric — drill-down shows the breakdown
-const LOAN_METRIC_ID = 'loans_total';
+// Sidebar structure: label → series_id (drilldown-capable ones are single entries)
+const SIDEBAR_SECTIONS: { label: string; metrics: { id: string; label: string }[] }[] = [
+  {
+    label: 'Profitability',
+    metrics: [
+      { id: 'roe_ytd', label: 'ROE' },
+      { id: 'npat_ytd', label: 'NPAT' },
+      { id: 'cir_ytd', label: 'Cost-to-Income Ratio' },
+    ],
+  },
+  {
+    label: 'Income',
+    metrics: [
+      { id: 'op_income_ytd', label: 'Operating Income' },
+      { id: 'net_op_income_ytd', label: 'Net Operating Income' },
+    ],
+  },
+  {
+    label: 'NII',
+    metrics: [
+      { id: 'nii_ytd', label: 'Net Interest Income' },
+      { id: 'nim_ytd', label: 'Net Interest Margin' },
+    ],
+  },
+  {
+    label: 'Expenses',
+    metrics: [
+      { id: 'op_expense_ytd', label: 'Operating Expenses' },
+    ],
+  },
+  {
+    label: 'Loans',
+    metrics: [
+      { id: 'loans_total', label: 'Total Loans' },
+    ],
+  },
+  {
+    label: 'Balance Sheet',
+    metrics: [
+      { id: 'total_assets', label: 'Total Assets' },
+      { id: 'total_liabilities', label: 'Total Liabilities' },
+      { id: 'total_equity', label: 'Total Equity' },
+    ],
+  },
+  {
+    label: 'Operations',
+    metrics: [
+      { id: 'clients', label: 'Clients' },
+      { id: 'fte', label: 'FTE' },
+    ],
+  },
+  {
+    label: 'Risk & Regulatory',
+    metrics: [
+      { id: 'capital_adequacy', label: 'Capital Adequacy' },
+      { id: 'risk_costs_qtd', label: 'Risk Costs' },
+      { id: 'risk_charge', label: 'Risk Charge' },
+    ],
+  },
+];
 
 const DRILLDOWN_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1',
   '#06b6d4', '#a855f7', '#f43f5e', '#22c55e', '#f97316',
-  '#84cc16', '#e879f9', '#fb923c', '#38bdf8', '#c084fc',
 ];
 
 type ChartMode = 'line' | 'bar';
 
 export default function Markets() {
-  const [allSeries, setAllSeries] = useState<SeriesInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
-  const [metricsData, setMetricsData] = useState<any[]>([]);
+  const [allSeries, setAllSeries] = useState<SeriesInfo[]>([]);
+  const [drilldownConfig, setDrilldownConfig] = useState<Record<string, string[]>>({});
 
-  const [selectedMetric, setSelectedMetric] = useState<string>('');
+  const [selectedMetric, setSelectedMetric] = useState('roe_ytd');
   const [selectedBanks, setSelectedBanks] = useState<string[]>(Object.keys(BANK_COLORS));
   const [chartMode, setChartMode] = useState<ChartMode>('line');
-
-  // Loan drill-down state
-  const [loanDrillLevel, setLoanDrillLevel] = useState<string | null>(null);
-  const [drillData, setDrillData] = useState<any[]>([]);
-  const [drillLoading, setDrillLoading] = useState(false);
   const [showMarketShare, setShowMarketShare] = useState(false);
 
-  const HIDDEN_CATEGORIES = useMemo(() => new Set(['loan_drilldown', 'loans_growth']), []);
+  // Drill-down into one bank
+  const [drillBank, setDrillBank] = useState<string | null>(null);
+  const [drillData, setDrillData] = useState<any[]>([]);
+  const [drillLoading, setDrillLoading] = useState(false);
 
+  // Main comparison data
+  const [metricsData, setMetricsData] = useState<any[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+
+  const hasDrilldown = selectedMetric in drilldownConfig;
+
+  // Load series + drilldown config
   useEffect(() => {
-    api.getMetricsSeries().then((series: SeriesInfo[]) => {
-      const bankSeries = series.filter((s) => s.competitor_id && !HIDDEN_CATEGORIES.has(s.category));
-      setAllSeries(bankSeries);
-      const def = bankSeries.find((s) => s.series_id === 'roe_ytd')?.series_id || bankSeries[0]?.series_id || '';
-      setSelectedMetric(def);
-    }).finally(() => setLoading(false));
+    Promise.all([api.getMetricsSeries(), api.getDrilldownConfig()])
+      .then(([series, dd]) => { setAllSeries(series); setDrilldownConfig(dd); })
+      .finally(() => setLoading(false));
   }, []);
-
-  const uniqueMetrics = useMemo(() => {
-    const seen = new Map<string, SeriesInfo>();
-    for (const s of allSeries) {
-      if (!seen.has(s.series_id)) seen.set(s.series_id, s);
-    }
-    return [...seen.values()];
-  }, [allSeries]);
-
-  // Group by category, but merge all loan-related into single "Loans" entry
-  const categories = useMemo(() => {
-    const cats = new Map<string, SeriesInfo[]>();
-    const loanIds = new Set([LOAN_METRIC_ID, 'loans_retail', 'loans_commercial', 'mortgages']);
-
-    for (const s of uniqueMetrics) {
-      if (loanIds.has(s.series_id)) continue;
-      if (!cats.has(s.category)) cats.set(s.category, []);
-      cats.get(s.category)!.push(s);
-    }
-    return cats;
-  }, [uniqueMetrics]);
-
-  const isLoanMode = selectedMetric === LOAN_METRIC_ID;
 
   // Fetch comparison data
   useEffect(() => {
-    if (!selectedMetric || selectedBanks.length === 0) {
-      setMetricsData([]);
-      return;
-    }
+    if (!selectedMetric || selectedBanks.length === 0) { setMetricsData([]); return; }
     setDataLoading(true);
-    setLoanDrillLevel(null);
-    Promise.all(
-      selectedBanks.map((bankId) => api.getMetrics({ series_id: selectedMetric, competitor: bankId }))
-    ).then((results) => setMetricsData(results.flat()))
+    setDrillBank(null);
+    Promise.all(selectedBanks.map((b) => api.getMetrics({ series_id: selectedMetric, competitor: b })))
+      .then((r) => setMetricsData(r.flat()))
       .finally(() => setDataLoading(false));
   }, [selectedMetric, selectedBanks]);
 
-  // Fetch drill-down when a bank is expanded
+  // Fetch drill-down
   useEffect(() => {
-    if (!loanDrillLevel) {
-      setDrillData([]);
-      return;
-    }
+    if (!drillBank || !hasDrilldown) { setDrillData([]); return; }
     setDrillLoading(true);
-    api.getDrilldown({ competitor: loanDrillLevel })
+    api.getDrilldown({ competitor: drillBank, parent: selectedMetric })
       .then(setDrillData)
       .finally(() => setDrillLoading(false));
-  }, [loanDrillLevel]);
+  }, [drillBank, selectedMetric]);
 
-  // Pivot comparison data by date
+  // Pivot comparison by date
   const chartData = useMemo(() => {
     const byDate = new Map<string, Record<string, any>>();
     for (const m of metricsData) {
@@ -157,80 +151,75 @@ export default function Markets() {
     return [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   }, [metricsData]);
 
-  // Market share version: convert absolute to % of total per date
-  const marketShareData = useMemo(() => {
+  // % share version
+  const shareData = useMemo(() => {
     return chartData.map((row) => {
       const out: Record<string, any> = { date: row.date };
       let total = 0;
-      for (const bankId of selectedBanks) {
-        total += (row[bankId] as number) || 0;
-      }
-      for (const bankId of selectedBanks) {
-        out[bankId] = total > 0 ? ((row[bankId] as number) || 0) / total * 100 : 0;
-      }
+      for (const b of selectedBanks) total += (row[b] as number) || 0;
+      for (const b of selectedBanks) out[b] = total > 0 ? ((row[b] as number) || 0) / total * 100 : 0;
       return out;
     });
   }, [chartData, selectedBanks]);
 
-  // Pivot drill-down data
-  const { drillChartData, drillCategories } = useMemo(() => {
+  // Pivot drill-down
+  const { ddChart, ddCats } = useMemo(() => {
     const byDate = new Map<string, Record<string, any>>();
     const cats = new Set<string>();
     for (const d of drillData) {
-      const label = d.series_name.replace(' (%)', '');
-      cats.add(label);
+      cats.add(d.series_name);
       if (!byDate.has(d.date)) byDate.set(d.date, { date: d.date });
-      byDate.get(d.date)![label] = d.value;
+      byDate.get(d.date)![d.series_name] = d.value;
     }
     return {
-      drillChartData: [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))),
-      drillCategories: [...cats],
+      ddChart: [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))),
+      ddCats: [...cats],
     };
   }, [drillData]);
 
-  const latestValues = useMemo(() => {
-    const latest = new Map<string, { value: number; date: string }>();
-    for (const m of metricsData) {
-      if (!m.competitor_id) continue;
-      const prev = latest.get(m.competitor_id);
-      if (!prev || m.date > prev.date) latest.set(m.competitor_id, { value: m.value, date: m.date });
+  // Current metric info
+  const metricInfo = useMemo(() => {
+    for (const sec of SIDEBAR_SECTIONS) {
+      const m = sec.metrics.find((x) => x.id === selectedMetric);
+      if (m) return m;
     }
-    return latest;
-  }, [metricsData]);
+    return { id: selectedMetric, label: selectedMetric };
+  }, [selectedMetric]);
 
-  const currentMetricInfo = uniqueMetrics.find((s) => s.series_id === selectedMetric)
-    || (isLoanMode ? { series_name: 'Total Loans (mio CZK)', unit: 'mio CZK' } : null);
+  const metricUnit = useMemo(() => {
+    const s = allSeries.find((x) => x.series_id === selectedMetric);
+    return s?.unit || '';
+  }, [allSeries, selectedMetric]);
 
-  const toggleBank = useCallback((bankId: string) => {
-    setSelectedBanks((prev) => prev.includes(bankId) ? prev.filter((b) => b !== bankId) : [...prev, bankId]);
+  const toggleBank = useCallback((b: string) => {
+    setSelectedBanks((p) => p.includes(b) ? p.filter((x) => x !== b) : [...p, b]);
   }, []);
 
   const fmtQ = (d: string) => { const [y, m] = d.split('-'); return `Q${Math.ceil(Number(m) / 3)}/${y.slice(2)}`; };
   const fmtVal = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(1);
+  const fmtCell = (v: number, pct: boolean) => pct ? `${v.toFixed(1)}%` : Math.round(v).toLocaleString('cs-CZ');
+
+  const activeData = showMarketShare ? shareData : chartData;
 
   if (loading) return <div className="max-w-[1400px] mx-auto animate-pulse"><div className="bg-white border border-slate-200 rounded-lg h-[500px] shadow-sm" /></div>;
-  if (uniqueMetrics.length === 0) return <div className="max-w-[1400px] mx-auto"><div className="bg-white border border-slate-200 rounded-lg p-16 shadow-sm text-center"><div className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">No data</div><code className="text-xs font-mono bg-slate-100 px-3 py-1.5 rounded text-slate-500">ci-monitor collect --source market</code></div></div>;
 
   return (
     <div className="max-w-[1400px] mx-auto grid grid-cols-12 gap-6">
-      {/* Left panel */}
+      {/* ── Left panel ────────────────────────────────── */}
       <div className="col-span-12 lg:col-span-3 space-y-4">
-        {/* Bank selector */}
+        {/* Banks */}
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-3">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banks</label>
           <div className="space-y-1">
-            {Object.entries(BANK_LABELS).map(([id, label]) => {
-              const active = selectedBanks.includes(id);
-              return (
-                <button key={id} onClick={() => toggleBank(id)}
-                  className={cn('w-full flex items-center gap-2 px-3 py-2 rounded text-[10px] font-bold transition-all border',
-                    active ? 'border-slate-200 bg-white text-slate-900' : 'border-transparent bg-slate-50 text-slate-400')}>
-                  <span className={cn('w-3 h-3 rounded-sm shrink-0 border-2', active ? '' : 'opacity-30')}
-                    style={{ backgroundColor: active ? BANK_COLORS[id] : '#e2e8f0', borderColor: BANK_COLORS[id] }} />
-                  <span className="truncate">{label}</span>
-                </button>
-              );
-            })}
+            {Object.entries(BANK_LABELS).map(([id, label]) => (
+              <button key={id} onClick={() => toggleBank(id)}
+                className={cn('w-full flex items-center gap-2 px-3 py-2 rounded text-[10px] font-bold transition-all border',
+                  selectedBanks.includes(id) ? 'border-slate-200 bg-white text-slate-900' : 'border-transparent bg-slate-50 text-slate-400')}>
+                <span className={cn('w-3 h-3 rounded-sm shrink-0 border-2', selectedBanks.includes(id) ? '' : 'opacity-30')}
+                  style={{ backgroundColor: selectedBanks.includes(id) ? BANK_COLORS[id] : '#e2e8f0', borderColor: BANK_COLORS[id] }} />
+                <span className="truncate">{label}</span>
+              </button>
+            ))}
           </div>
           <div className="flex gap-1 pt-1">
             <button onClick={() => setSelectedBanks(Object.keys(BANK_COLORS))} className="flex-1 py-1.5 bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all">All</button>
@@ -238,80 +227,63 @@ export default function Markets() {
           </div>
         </div>
 
-        {/* LOANS — single button */}
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loans</label>
-          <button onClick={() => { setSelectedMetric(LOAN_METRIC_ID); setLoanDrillLevel(null); }}
-            className={cn('w-full text-left px-3 py-1.5 rounded text-[10px] font-bold transition-all border',
-              isLoanMode ? 'bg-[#fee600] border-[#fee600] text-black shadow-sm' : 'bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
-            Total Loans
-          </button>
-        </div>
-
-        {/* Other metric categories */}
-        {[...categories.entries()].map(([cat, metrics]) => (
-          <div key={cat} className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{CATEGORY_LABELS[cat] || cat}</label>
+        {/* Metrics */}
+        {SIDEBAR_SECTIONS.map((sec) => (
+          <div key={sec.label} className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{sec.label}</label>
             <div className="space-y-0.5">
-              {metrics.map((m) => (
-                <button key={m.series_id} onClick={() => { setSelectedMetric(m.series_id); setLoanDrillLevel(null); }}
-                  className={cn('w-full text-left px-3 py-1.5 rounded text-[10px] font-bold transition-all border',
-                    selectedMetric === m.series_id ? 'bg-[#fee600] border-[#fee600] text-black shadow-sm' : 'bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
-                  {m.series_name.replace(/ - YTD| - QTD| - EoP|\(mio CZK\)|\(%\)/g, '').trim()}
-                </button>
-              ))}
+              {sec.metrics.map((m) => {
+                const isDrill = m.id in drilldownConfig;
+                return (
+                  <button key={m.id} onClick={() => { setSelectedMetric(m.id); setDrillBank(null); setShowMarketShare(false); }}
+                    className={cn('w-full text-left px-3 py-1.5 rounded text-[10px] font-bold transition-all border flex items-center justify-between',
+                      selectedMetric === m.id ? 'bg-[#fee600] border-[#fee600] text-black shadow-sm' : 'bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
+                    <span>{m.label}</span>
+                    {isDrill && <ChevronRight size={10} className="opacity-40" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Main chart area */}
+      {/* ── Main area ─────────────────────────────────── */}
       <div className="col-span-12 lg:col-span-9 space-y-6">
         <div className="bg-white border border-slate-200 rounded-lg p-8 shadow-sm">
-          {/* Header with drill-down controls */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-2">
             <div>
               <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-1">Bank Comparison</h2>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                {(currentMetricInfo as any)?.series_name || 'Select a metric'}
-              </h3>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">{metricInfo.label}</h3>
+              {metricUnit && <span className="text-[10px] font-bold text-slate-400">{metricUnit}</span>}
             </div>
-            <div className="flex items-center gap-3">
-              {!loanDrillLevel && (
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1 bg-slate-100 rounded p-1">
-                    <button onClick={() => setShowMarketShare(false)}
-                      className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
-                        !showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
-                      Absolute
-                    </button>
-                    <button onClick={() => setShowMarketShare(true)}
-                      className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
-                        showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
-                      % Share
-                    </button>
-                  </div>
-                  <div className="flex gap-1 bg-slate-100 rounded p-1">
-                    <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
-                    <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
-                  </div>
+            {!drillBank && (
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1 bg-slate-100 rounded p-1">
+                  <button onClick={() => setShowMarketShare(false)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', !showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>Absolute</button>
+                  <button onClick={() => setShowMarketShare(true)} className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all', showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>% Share</button>
                 </div>
-              )}
-            </div>
+                <div className="flex gap-1 bg-slate-100 rounded p-1">
+                  <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
+                  <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Drill-down breadcrumb when active */}
-          {loanDrillLevel && (
+          {/* Breadcrumb */}
+          {drillBank && (
             <div className="flex items-center gap-2 mb-4 py-2 px-3 bg-slate-50 rounded">
-              <button onClick={() => setLoanDrillLevel(null)} className="text-[10px] font-black text-blue-600 uppercase tracking-wider hover:underline">
-                Total Loans (All Banks)
+              <button onClick={() => setDrillBank(null)} className="text-[10px] font-black text-blue-600 uppercase tracking-wider hover:underline">
+                {metricInfo.label} (All Banks)
               </button>
               <ChevronRight size={12} className="text-slate-400" />
               <span className="text-[10px] font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BANK_COLORS[loanDrillLevel] }} />
-                {BANK_LABELS[loanDrillLevel]} — Loan Breakdown
+                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BANK_COLORS[drillBank] }} />
+                {BANK_LABELS[drillBank]} — Breakdown
               </span>
-              <span className="ml-auto text-[9px] font-bold text-slate-400">mio CZK</span>
+              <span className="ml-auto text-[9px] font-bold text-slate-400">{metricUnit}</span>
             </div>
           )}
 
@@ -319,67 +291,58 @@ export default function Markets() {
           <div className="h-[420px]">
             {(dataLoading || drillLoading) ? (
               <div className="flex items-center justify-center h-full text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading...</div>
-            ) : loanDrillLevel ? (
-              /* DRILL-DOWN: stacked area for one bank */
-              drillChartData.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-[10px] font-black uppercase tracking-widest text-slate-300">No drill-down data for {BANK_LABELS[loanDrillLevel]}</div>
+            ) : drillBank ? (
+              /* DRILL-DOWN: stacked area */
+              ddChart.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-[10px] font-black uppercase tracking-widest text-slate-300">No breakdown data</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={drillChartData} margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
+                  <AreaChart data={ddChart} margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
-                    <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
-                      tickFormatter={fmtVal} />
+                    <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60} tickFormatter={fmtVal} />
                     <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
                       labelFormatter={(d) => fmtQ(String(d))}
-                      formatter={(value: any, name: any) => [`${Number(value).toLocaleString('cs-CZ')} mio CZK`, name]} />
+                      formatter={(value: any, name: any) => [`${Math.round(Number(value)).toLocaleString('cs-CZ')} ${metricUnit}`, name]} />
                     <Legend formatter={(v: string) => <span className="text-[8px] font-bold">{v}</span>} />
-                    {drillCategories.map((cat, i) => (
+                    {ddCats.map((cat, i) => (
                       <Area key={cat} type="monotone" dataKey={cat} stackId="1" stroke={DRILLDOWN_COLORS[i % DRILLDOWN_COLORS.length]} fill={DRILLDOWN_COLORS[i % DRILLDOWN_COLORS.length]} fillOpacity={0.7} />
                     ))}
                   </AreaChart>
                 </ResponsiveContainer>
               )
-            ) : chartData.length === 0 ? (
+            ) : activeData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-[10px] font-black uppercase tracking-widest text-slate-300">No data</div>
-            ) : chartMode === 'line' || isLoanMode ? (
-              /* LINE CHART — absolute or % share */
+            ) : chartMode === 'line' ? (
+              /* LINE */
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={showMarketShare ? marketShareData : chartData} margin={{ top: 5, right: 20, bottom: 20, left: 20 }}>
+                <LineChart data={activeData} margin={{ top: 5, right: 20, bottom: 20, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
                   <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
                     tickFormatter={(v: number) => showMarketShare ? `${v.toFixed(0)}%` : fmtVal(v)} />
                   <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
                     labelFormatter={(d) => fmtQ(String(d))}
-                    formatter={(value: any, name: any) => [
-                      showMarketShare ? `${Number(value).toFixed(1)}%` : `${Number(value).toLocaleString('cs-CZ')} ${(currentMetricInfo as any)?.unit || ''}`,
-                      BANK_LABELS[name] || name,
-                    ]} />
+                    formatter={(value: any, name: any) => [fmtCell(Number(value), showMarketShare) + (!showMarketShare ? ` ${metricUnit}` : ''), BANK_LABELS[name] || name]} />
                   <Legend formatter={(v: string) => <span className="text-[9px] font-bold uppercase">{BANK_LABELS[v] || v}</span>} />
-                  {selectedBanks.map((bankId) => (
-                    <Line key={bankId} type="monotone" dataKey={bankId} stroke={BANK_COLORS[bankId]} strokeWidth={bankId === 'raiffeisenbank' ? 3 : 2} dot={{ r: 3 }} connectNulls />
+                  {selectedBanks.map((b) => (
+                    <Line key={b} type="monotone" dataKey={b} stroke={BANK_COLORS[b]} strokeWidth={b === 'raiffeisenbank' ? 3 : 2} dot={{ r: 3 }} connectNulls />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              /* BAR CHART — absolute or % share */
+              /* BAR */
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={selectedBanks.filter((b) => (showMarketShare ? marketShareData : chartData).some((d) => d[b] != null)).map((b) => {
-                    const src = showMarketShare ? marketShareData : chartData;
-                    const last = [...src].reverse().find((d) => d[b] != null);
+                <BarChart data={selectedBanks.filter((b) => activeData.some((d) => d[b] != null)).map((b) => {
+                    const last = [...activeData].reverse().find((d) => d[b] != null);
                     return { bank: BANK_LABELS[b], value: last ? last[b] : 0 };
-                  }).sort((a, b) => b.value - a.value)}
-                  margin={{ top: 5, right: 20, bottom: 60, left: 20 }}>
+                  }).sort((a, b) => b.value - a.value)} margin={{ top: 5, right: 20, bottom: 60, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="bank" tick={{ fontSize: 9, fontWeight: 900, fill: '#334155' }} axisLine={{ stroke: '#e2e8f0' }} angle={-35} textAnchor="end" interval={0} />
                   <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
                     tickFormatter={(v: number) => showMarketShare ? `${v.toFixed(0)}%` : fmtVal(v)} />
                   <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                    formatter={(value: any) => [
-                      showMarketShare ? `${Number(value).toFixed(1)}%` : `${Number(value).toLocaleString('cs-CZ')} ${(currentMetricInfo as any)?.unit || ''}`,
-                      (currentMetricInfo as any)?.series_name,
-                    ]} />
+                    formatter={(value: any) => [fmtCell(Number(value), showMarketShare) + (!showMarketShare ? ` ${metricUnit}` : ''), metricInfo.label]} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40} fill="#fee600" />
                 </BarChart>
               </ResponsiveContainer>
@@ -387,19 +350,24 @@ export default function Markets() {
           </div>
         </div>
 
-        {/* Bank drill-down buttons — only in loan mode, when not already drilled */}
-        {isLoanMode && !loanDrillLevel && (
+        {/* Drill-down buttons */}
+        {hasDrilldown && !drillBank && (
           <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <ChevronDown size={14} className="text-[#e6cf00]" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Drill into bank loan portfolio</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Drill into {metricInfo.label.toLowerCase()} breakdown
+              </span>
+              <span className="text-[9px] font-bold text-slate-300 ml-2">
+                ({drilldownConfig[selectedMetric]?.join(', ')})
+              </span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {selectedBanks.map((bankId) => (
-                <button key={bankId} onClick={() => setLoanDrillLevel(bankId)}
+              {selectedBanks.map((b) => (
+                <button key={b} onClick={() => setDrillBank(b)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded text-[10px] font-bold bg-white border border-slate-200 text-slate-700 hover:border-[#fee600] hover:bg-yellow-50 transition-all">
-                  <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BANK_COLORS[bankId] }} />
-                  {BANK_LABELS[bankId]}
+                  <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: BANK_COLORS[b] }} />
+                  {BANK_LABELS[b]}
                   <ChevronRight size={10} className="text-slate-400" />
                 </button>
               ))}
@@ -407,30 +375,26 @@ export default function Markets() {
           </div>
         )}
 
-        {/* Data table — shows drill-down data or comparison data */}
+        {/* Data table */}
         <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-900">
-              {loanDrillLevel
-                ? `${BANK_LABELS[loanDrillLevel]} — Loan Breakdown`
-                : `${(currentMetricInfo as any)?.series_name || 'Metric'} — Quarterly Values`}
+              {drillBank ? `${BANK_LABELS[drillBank]} — ${metricInfo.label} Breakdown` : `${metricInfo.label} — Quarterly Values`}
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-[10px] text-left border-collapse">
               <thead>
                 <tr className="text-slate-400 border-b border-slate-100 bg-slate-50/30">
-                  <th className="px-4 py-3 font-black uppercase tracking-widest sticky left-0 bg-slate-50/30">
-                    {loanDrillLevel ? 'Category' : 'Bank'}
-                  </th>
-                  {(loanDrillLevel ? drillChartData : chartData).map((d) => (
+                  <th className="px-4 py-3 font-black uppercase tracking-widest sticky left-0 bg-slate-50/30">{drillBank ? 'Category' : 'Bank'}</th>
+                  {(drillBank ? ddChart : activeData).map((d) => (
                     <th key={d.date} className="px-3 py-3 font-black uppercase tracking-widest text-right whitespace-nowrap">{fmtQ(String(d.date))}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {loanDrillLevel ? (
-                  drillCategories.map((cat, i) => (
+                {drillBank ? (
+                  ddCats.map((cat, i) => (
                     <tr key={cat} className="border-b border-slate-50">
                       <td className="px-4 py-2.5 sticky left-0 bg-white">
                         <div className="flex items-center gap-1.5">
@@ -438,7 +402,7 @@ export default function Markets() {
                           <span className="font-bold text-slate-900">{cat}</span>
                         </div>
                       </td>
-                      {drillChartData.map((d) => (
+                      {ddChart.map((d) => (
                         <td key={d.date} className="px-3 py-2.5 text-right font-mono text-slate-700">
                           {d[cat] != null ? Math.round(Number(d[cat])).toLocaleString('cs-CZ') : '—'}
                         </td>
@@ -446,27 +410,21 @@ export default function Markets() {
                     </tr>
                   ))
                 ) : (
-                  selectedBanks.map((bankId) => {
-                    const tableRows = showMarketShare ? marketShareData : chartData;
-                    return (
-                    <tr key={bankId} className="border-b border-slate-50 hover:bg-yellow-50/30 transition-colors">
+                  selectedBanks.map((b) => (
+                    <tr key={b} className="border-b border-slate-50 hover:bg-yellow-50/30 transition-colors">
                       <td className="px-4 py-2.5 sticky left-0 bg-white">
                         <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: BANK_COLORS[bankId] }} />
-                          <span className={cn('font-black text-slate-900', bankId === 'raiffeisenbank' && 'text-[#b8960a]')}>{BANK_LABELS[bankId]}</span>
+                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: BANK_COLORS[b] }} />
+                          <span className={cn('font-black text-slate-900', b === 'raiffeisenbank' && 'text-[#b8960a]')}>{BANK_LABELS[b]}</span>
                         </div>
                       </td>
-                      {tableRows.map((d) => (
+                      {activeData.map((d) => (
                         <td key={d.date} className="px-3 py-2.5 text-right font-mono text-slate-700">
-                          {d[bankId] != null
-                            ? showMarketShare
-                              ? `${Number(d[bankId]).toFixed(1)}%`
-                              : Number(d[bankId]).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })
-                            : '—'}
+                          {d[b] != null ? fmtCell(Number(d[b]), showMarketShare) : '—'}
                         </td>
                       ))}
                     </tr>
-                  );})
+                  ))
                 )}
               </tbody>
             </table>
