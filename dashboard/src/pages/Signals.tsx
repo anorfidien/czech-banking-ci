@@ -24,13 +24,26 @@ export default function Signals() {
   }, []);
 
   const sources = useMemo(() => [...new Set(signals.map((s) => s.source))].sort(), [signals]);
-  const competitors = useMemo(() => [...new Set(signals.map((s) => s.competitor_id))].sort(), [signals]);
+
+  const ALL_BANKS: { value: string; label: string }[] = [
+    { value: 'raiffeisenbank', label: 'Raiffeisenbank' },
+    { value: 'ceska_sporitelna', label: 'Česká spořitelna' },
+    { value: 'csob', label: 'ČSOB' },
+    { value: 'komercni_banka', label: 'Komerční banka' },
+    { value: 'moneta', label: 'Moneta' },
+    { value: 'fio_banka', label: 'Fio banka' },
+    { value: 'unicredit', label: 'UniCredit' },
+    { value: 'air_bank', label: 'Air Bank' },
+    { value: 'mbank', label: 'mBank' },
+    { value: 'partners_bank', label: 'Partners Bank' },
+    { value: 'revolut_cz', label: 'Revolut' },
+  ];
 
   const filtered = useMemo(() => {
     let result = signals;
     if (filterSource) result = result.filter((s) => s.source === filterSource);
     if (filterCompetitor) result = result.filter((s) => s.competitor_id === filterCompetitor);
-    if (filterSeverity) result = result.filter((s) => s.severity <= Number(filterSeverity));
+    if (filterSeverity) result = result.filter((s) => s.severity === Number(filterSeverity));
     if (filterSegment) result = result.filter((s) => s.segment === filterSegment);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -99,7 +112,7 @@ export default function Signals() {
           label="Competitor"
           value={filterCompetitor}
           onChange={setFilterCompetitor}
-          options={competitors.map((c) => ({ value: c, label: c }))}
+          options={ALL_BANKS}
         />
         <FilterSelect
           label="Priority"
@@ -107,8 +120,8 @@ export default function Signals() {
           onChange={setFilterSeverity}
           options={[
             { value: '1', label: 'High' },
-            { value: '2', label: 'Medium+' },
-            { value: '3', label: 'All' },
+            { value: '2', label: 'Medium' },
+            { value: '3', label: 'Low' },
           ]}
         />
         <FilterSelect
