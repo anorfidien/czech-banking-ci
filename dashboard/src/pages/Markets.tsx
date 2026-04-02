@@ -42,11 +42,6 @@ const SIDEBAR_SECTIONS: { label: string; metrics: { id: string; label: string }[
     metrics: [
       { id: 'op_income_ytd', label: 'Operating Income' },
       { id: 'net_op_income_ytd', label: 'Net Operating Income' },
-    ],
-  },
-  {
-    label: 'NII',
-    metrics: [
       { id: 'nii_ytd', label: 'Net Interest Income' },
       { id: 'nim_ytd', label: 'Net Interest Margin' },
     ],
