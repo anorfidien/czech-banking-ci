@@ -277,13 +277,13 @@ export default function Markets() {
               </h3>
             </div>
             <div className="flex items-center gap-3">
-              {isLoanMode && !loanDrillLevel && (
-                <div className="flex items-center gap-3">
+              {!loanDrillLevel && (
+                <div className="flex items-center gap-2">
                   <div className="flex gap-1 bg-slate-100 rounded p-1">
                     <button onClick={() => setShowMarketShare(false)}
                       className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
                         !showMarketShare ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}>
-                      mio CZK
+                      Absolute
                     </button>
                     <button onClick={() => setShowMarketShare(true)}
                       className={cn('px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all',
@@ -291,12 +291,10 @@ export default function Markets() {
                       % Share
                     </button>
                   </div>
-                </div>
-              )}
-              {!isLoanMode && (
-                <div className="flex gap-1 bg-slate-100 rounded p-1">
-                  <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
-                  <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
+                  <div className="flex gap-1 bg-slate-100 rounded p-1">
+                    <button onClick={() => setChartMode('line')} className={cn('p-2 rounded transition-all', chartMode === 'line' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><TrendingUp size={14} /></button>
+                    <button onClick={() => setChartMode('bar')} className={cn('p-2 rounded transition-all', chartMode === 'bar' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400')}><BarChart3 size={14} /></button>
+                  </div>
                 </div>
               )}
             </div>
@@ -344,8 +342,8 @@ export default function Markets() {
               )
             ) : chartData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-[10px] font-black uppercase tracking-widest text-slate-300">No data</div>
-            ) : isLoanMode ? (
-              /* LOANS: line chart — absolute or % market share */
+            ) : chartMode === 'line' || isLoanMode ? (
+              /* LINE CHART — absolute or % share */
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={showMarketShare ? marketShareData : chartData} margin={{ top: 5, right: 20, bottom: 20, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -355,7 +353,7 @@ export default function Markets() {
                   <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
                     labelFormatter={(d) => fmtQ(String(d))}
                     formatter={(value: any, name: any) => [
-                      showMarketShare ? `${Number(value).toFixed(1)}%` : `${Number(value).toLocaleString('cs-CZ')} mio CZK`,
+                      showMarketShare ? `${Number(value).toFixed(1)}%` : `${Number(value).toLocaleString('cs-CZ')} ${(currentMetricInfo as any)?.unit || ''}`,
                       BANK_LABELS[name] || name,
                     ]} />
                   <Legend formatter={(v: string) => <span className="text-[9px] font-bold uppercase">{BANK_LABELS[v] || v}</span>} />
@@ -364,32 +362,24 @@ export default function Markets() {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
-            ) : chartMode === 'line' ? (
-              /* COMPARISON: line chart */
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 20, left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={fmtQ} axisLine={{ stroke: '#e2e8f0' }} />
-                  <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60} tickFormatter={fmtVal} />
-                  <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                    labelFormatter={(d) => fmtQ(String(d))}
-                    formatter={(value: any, name: any) => [`${Number(value).toLocaleString('cs-CZ')} ${(currentMetricInfo as any)?.unit || ''}`, BANK_LABELS[name] || name]} />
-                  <Legend formatter={(v: string) => <span className="text-[9px] font-bold uppercase">{BANK_LABELS[v] || v}</span>} />
-                  {selectedBanks.map((bankId) => (
-                    <Line key={bankId} type="monotone" dataKey={bankId} stroke={BANK_COLORS[bankId]} strokeWidth={bankId === 'raiffeisenbank' ? 3 : 2} dot={{ r: 3 }} connectNulls />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
             ) : (
-              /* COMPARISON: bar chart */
+              /* BAR CHART — absolute or % share */
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={selectedBanks.filter((b) => latestValues.has(b)).map((b) => ({ bank: BANK_LABELS[b], value: latestValues.get(b)!.value })).sort((a, b) => b.value - a.value)}
+                <BarChart data={selectedBanks.filter((b) => (showMarketShare ? marketShareData : chartData).some((d) => d[b] != null)).map((b) => {
+                    const src = showMarketShare ? marketShareData : chartData;
+                    const last = [...src].reverse().find((d) => d[b] != null);
+                    return { bank: BANK_LABELS[b], value: last ? last[b] : 0 };
+                  }).sort((a, b) => b.value - a.value)}
                   margin={{ top: 5, right: 20, bottom: 60, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="bank" tick={{ fontSize: 9, fontWeight: 900, fill: '#334155' }} axisLine={{ stroke: '#e2e8f0' }} angle={-35} textAnchor="end" interval={0} />
-                  <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60} tickFormatter={fmtVal} />
+                  <YAxis tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} width={60}
+                    tickFormatter={(v: number) => showMarketShare ? `${v.toFixed(0)}%` : fmtVal(v)} />
                   <Tooltip contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                    formatter={(value: any) => [`${Number(value).toLocaleString('cs-CZ')} ${(currentMetricInfo as any)?.unit || ''}`, (currentMetricInfo as any)?.series_name]} />
+                    formatter={(value: any) => [
+                      showMarketShare ? `${Number(value).toFixed(1)}%` : `${Number(value).toLocaleString('cs-CZ')} ${(currentMetricInfo as any)?.unit || ''}`,
+                      (currentMetricInfo as any)?.series_name,
+                    ]} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40} fill="#fee600" />
                 </BarChart>
               </ResponsiveContainer>
@@ -457,7 +447,7 @@ export default function Markets() {
                   ))
                 ) : (
                   selectedBanks.map((bankId) => {
-                    const tableRows = (isLoanMode && showMarketShare) ? marketShareData : chartData;
+                    const tableRows = showMarketShare ? marketShareData : chartData;
                     return (
                     <tr key={bankId} className="border-b border-slate-50 hover:bg-yellow-50/30 transition-colors">
                       <td className="px-4 py-2.5 sticky left-0 bg-white">
@@ -469,7 +459,7 @@ export default function Markets() {
                       {tableRows.map((d) => (
                         <td key={d.date} className="px-3 py-2.5 text-right font-mono text-slate-700">
                           {d[bankId] != null
-                            ? (isLoanMode && showMarketShare)
+                            ? showMarketShare
                               ? `${Number(d[bankId]).toFixed(1)}%`
                               : Number(d[bankId]).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })
                             : '—'}
