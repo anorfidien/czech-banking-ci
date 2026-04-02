@@ -9,7 +9,11 @@ import type { Summary } from '../types';
 import SeverityBadge from '../components/SeverityBadge';
 import { cn, SEVERITY_COLORS, SOURCE_LABELS, formatDateTime, timeAgo } from '../utils';
 
-const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#b91c1c'];
+const PRIORITY_CONFIG: Record<number, { color: string; label: string }> = {
+  2: { color: '#10b981', label: 'Low' },
+  3: { color: '#f59e0b', label: 'Medium' },
+  4: { color: '#ef4444', label: 'High' },
+};
 
 export default function Overview() {
   const [data, setData] = useState<Summary | null>(null);
@@ -105,7 +109,7 @@ export default function Overview() {
         {/* Severity Distribution */}
         <div className="col-span-12 lg:col-span-4 bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6">
-            Severity Distribution
+            Priority Distribution
           </h3>
           <div className="h-[180px]">
             {data.severity_distribution.length > 0 ? (
@@ -123,12 +127,12 @@ export default function Overview() {
                     stroke="#fff"
                   >
                     {data.severity_distribution.map((entry, i) => (
-                      <Cell key={i} fill={PIE_COLORS[entry.severity - 1] || PIE_COLORS[0]} />
+                      <Cell key={i} fill={PRIORITY_CONFIG[entry.severity]?.color || '#94a3b8'} />
                     ))}
                   </Pie>
                   <Tooltip
                     contentStyle={{ fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                    formatter={(value, name) => [`${value} signals`, `Severity ${name}`]}
+                    formatter={(value, name) => [`${value} signals`, PRIORITY_CONFIG[Number(name)]?.label || `Level ${name}`]}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -142,10 +146,10 @@ export default function Overview() {
               <div key={d.severity} className="flex items-center gap-1.5">
                 <div
                   className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: PIE_COLORS[d.severity - 1] }}
+                  style={{ backgroundColor: PRIORITY_CONFIG[d.severity]?.color || '#94a3b8' }}
                 />
                 <span className="text-[9px] font-bold text-slate-500">
-                  S{d.severity}: {d.count}
+                  {PRIORITY_CONFIG[d.severity]?.label || `Level ${d.severity}`}: {d.count}
                 </span>
               </div>
             ))}
