@@ -209,12 +209,7 @@ def create_app(db_path: str | None = None) -> Flask:
     # parent_series_id -> list of (child_series_id, display_label)
     DRILLDOWNS = {
         "loans_total": {
-            "children": [
-                ("loans_retail", "Retail Loans"),
-                ("loans_commercial", "Commercial Loans"),
-                ("mortgages", "Mortgages"),
-            ],
-            "compute_other": True,
+            "custom": "loans",  # handled separately — mortgages is subset of retail
         },
         "op_income_ytd": {
             "children": [
@@ -269,8 +264,14 @@ def create_app(db_path: str | None = None) -> Flask:
                 return jsonify([])
 
             config = DRILLDOWNS[parent]
+
+            # Custom loans drill-down: Mortgages + Other Retail + Commercial + Other
+            if config.get("custom") == "loans":
+                result = _build_loans_drilldown(db, comp)
+                return jsonify(result)
+
             result = []
-            child_sums: dict[str, float] = {}  # date -> sum of children
+            child_sums: dict[str, float] = {}
 
             for child_id, label in config["children"]:
                 rows = db.get_metrics(series_id=child_id, competitor_id=comp)
@@ -299,7 +300,13 @@ def create_app(db_path: str | None = None) -> Flask:
     @app.route("/api/metrics/drilldowns")
     def api_drilldown_config():
         """Return which metrics support drill-down."""
-        return jsonify({k: [c[1] for c in v["children"]] for k, v in DRILLDOWNS.items()})
+        result = {}
+        for k, v in DRILLDOWNS.items():
+            if v.get("custom") == "loans":
+                result[k] = ["Mortgages", "Other Retail", "Commercial", "Other"]
+            else:
+                result[k] = [c[1] for c in v["children"]]
+        return jsonify(result)
 
     # ── Static file serving (production) ─────────────────────
 
@@ -314,6 +321,39 @@ def create_app(db_path: str | None = None) -> Flask:
         return jsonify({"error": "Dashboard not built. Run: cd dashboard && npm run build"}), 404
 
     return app
+
+
+def _build_loans_drilldown(db: Database, comp: str) -> list[dict]:
+    """Build loans drill-down: Mortgages, Other Retail, Commercial, Other.
+
+    Mortgages is a subset of Retail, so:
+    - Mortgages (from mortgages series)
+    - Other Retail = Retail - Mortgages
+    - Commercial (from loans_commercial series)
+    - Other = Total - Retail - Commercial
+    """
+    total = {r["date"]: r["value"] for r in db.get_metrics(series_id="loans_total", competitor_id=comp)}
+    retail = {r["date"]: r["value"] for r in db.get_metrics(series_id="loans_retail", competitor_id=comp)}
+    commercial = {r["date"]: r["value"] for r in db.get_metrics(series_id="loans_commercial", competitor_id=comp)}
+    mortgages = {r["date"]: r["value"] for r in db.get_metrics(series_id="mortgages", competitor_id=comp)}
+
+    result = []
+    for date in sorted(total.keys()):
+        t = total.get(date, 0)
+        r = retail.get(date, 0)
+        c = commercial.get(date, 0)
+        m = mortgages.get(date, 0)
+
+        result.append({"series_id": "mortgages", "series_name": "Mortgages", "date": date, "value": m, "unit": "mio CZK", "competitor_id": comp})
+        other_retail = r - m
+        if other_retail > 0.5:
+            result.append({"series_id": "other_retail", "series_name": "Other Retail", "date": date, "value": other_retail, "unit": "mio CZK", "competitor_id": comp})
+        result.append({"series_id": "commercial", "series_name": "Commercial", "date": date, "value": c, "unit": "mio CZK", "competitor_id": comp})
+        other = t - r - c
+        if abs(other) > 0.5:
+            result.append({"series_id": "other", "series_name": "Other", "date": date, "value": other, "unit": "mio CZK", "competitor_id": comp})
+
+    return sorted(result, key=lambda x: (x["date"], x["series_name"]))
 
 
 def _int_or_none(val: str | None) -> int | None:
