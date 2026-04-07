@@ -277,7 +277,11 @@ export default function Markets() {
 
   const isPercent = metricUnit === '%';
 
-  const fmtQ = (d: string) => { const [y, m] = d.split('-'); return `Q${Math.ceil(Number(m) / 3)}/${y.slice(2)}`; };
+  const fmtQ = (d: string) => {
+    const [y, m] = d.split('-');
+    if (isYtdMetric && ytdMode === 'yearly') return y;
+    return `Q${Math.ceil(Number(m) / 3)}/${y.slice(2)}`;
+  };
 
   // Format for Y-axis ticks
   const fmtAxis = (v: number) => {
