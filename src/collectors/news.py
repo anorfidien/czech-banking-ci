@@ -114,22 +114,70 @@ class NewsCollector(BaseCollector):
         return signals
 
     def _scrape_press_page(self, competitor_id: str, url: str, bank_name: str) -> list[Signal]:
-        """Scrape press releases from a bank's own press/news page."""
+        """Scrape press releases — tries httpx first, falls back to Playwright for JS pages."""
+        html = None
+
+        # Try simple HTTP first
         try:
             resp = self._fetch(url)
+            html = resp.text
         except CollectorError:
-            logger.warning("Failed to fetch press page: %s", url)
+            logger.warning("HTTP fetch failed for %s, will try Playwright", url)
+
+        # Check if we got meaningful content or need Playwright
+        if html:
+            articles = self._extract_press_articles(html, url)
+            if articles:
+                return self._build_press_signals(competitor_id, bank_name, url, articles)
+
+        # Fall back to Playwright for JS-rendered pages
+        logger.info("Using Playwright for %s", url)
+        try:
+            html = self._fetch_with_playwright(url)
+        except Exception as e:
+            logger.warning("Playwright failed for %s: %s", url, e)
             return []
 
-        soup = BeautifulSoup(resp.text, "lxml")
-        # Remove navigation chrome
+        if not html:
+            return []
+
+        articles = self._extract_press_articles(html, url)
+        return self._build_press_signals(competitor_id, bank_name, url, articles)
+
+    def _fetch_with_playwright(self, url: str) -> str | None:
+        """Render a JS page with Playwright and return the HTML."""
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0",
+                    locale="cs-CZ",
+                )
+                page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                page.wait_for_timeout(5000)  # wait for JS rendering
+                html = page.content()
+                return html
+            except Exception as e:
+                logger.error("Playwright error for %s: %s", url, e)
+                return None
+            finally:
+                browser.close()
+
+    def _extract_press_articles(self, html: str, url: str) -> list[tuple[str, str]]:
+        """Extract (title, href) pairs from HTML press page."""
+        from urllib.parse import urlparse
+
+        soup = BeautifulSoup(html, "lxml")
         for tag in soup(["nav", "footer", "header", "script", "style", "noscript"]):
             tag.decompose()
 
-        signals = []
+        articles = []
         seen = set()
+        parsed_base = urlparse(url)
+        base_url = f"{parsed_base.scheme}://{parsed_base.netloc}"
 
-        # Find article-like links: <a> with substantial text inside h2/h3/h4/h5/h6 or with long text
         for a in soup.select("a[href]"):
             text = a.get_text(strip=True)
             href = a.get("href", "")
@@ -139,37 +187,40 @@ class NewsCollector(BaseCollector):
             if not href or href.startswith("#") or href.startswith("javascript"):
                 continue
 
-            # Must look like an article link (not navigation)
             parent_tag = a.parent.name if a.parent else ""
             is_heading = parent_tag in ("h1", "h2", "h3", "h4", "h5", "h6")
+            is_in_article = a.find_parent("article") is not None
             has_press_kw = any(kw in href.lower() for kw in [
                 "zprav", "press", "news", "blog", "clanek", "article",
-                "2024", "2025", "2026", "detail", "post",
+                "novinky", "novinka", "2024", "2025", "2026", "detail", "post",
             ])
 
-            if not is_heading and not has_press_kw:
+            if not is_heading and not has_press_kw and not is_in_article:
                 continue
 
-            # Normalize URL
             if href.startswith("/"):
-                from urllib.parse import urlparse
-                parsed = urlparse(url)
-                href = f"{parsed.scheme}://{parsed.netloc}{href}"
+                href = f"{base_url}{href}"
 
-            # Dedup by title
             title_key = text.lower().strip()
             if title_key in seen:
                 continue
             seen.add(title_key)
+            articles.append((text, href))
 
-            score, tags, reason = self._analyze_article(text, "")
+        return articles
+
+    def _build_press_signals(
+        self, competitor_id: str, bank_name: str, url: str, articles: list[tuple[str, str]]
+    ) -> list[Signal]:
+        signals = []
+        for title, href in articles:
+            score, tags, reason = self._analyze_article(title, "")
             tags.append(f"src:press:{bank_name}")
-
             signals.append(Signal(
                 competitor_id=competitor_id,
                 source=self.name,
                 signal_type="press_release",
-                title=text,
+                title=title,
                 content=f"Press release from {bank_name}",
                 url=href,
                 severity=score,
@@ -181,7 +232,6 @@ class NewsCollector(BaseCollector):
                     "priority_reason": reason,
                 },
             ))
-
         logger.info("Found %d press releases from %s", len(signals), bank_name)
         return signals
 
