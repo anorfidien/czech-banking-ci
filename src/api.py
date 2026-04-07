@@ -211,23 +211,8 @@ def create_app(db_path: str | None = None) -> Flask:
         "loans_total": {
             "custom": "loans",  # handled separately — mortgages is subset of retail
         },
-        "op_income_ytd": {
-            "children": [
-                ("nii_ytd", "NII"),
-                ("net_fees_ytd", "Net Fees & Commissions"),
-                ("other_op_result_ytd", "Other Operating Result"),
-            ],
-            "compute_other": False,
-        },
-        "op_expense_ytd": {
-            "children": [
-                ("perex_ytd", "Personnel Expense"),
-                ("gae_ytd", "GAE"),
-                ("depreciation_ytd", "Depreciation & Amortisation"),
-                ("reg_charges_ytd", "Regulatory Charges"),
-            ],
-            "compute_other": False,
-        },
+        # op_income_ytd and op_expense_ytd drill-downs removed
+        # — children don't add up to parent (different accounting scope)
         "total_assets": {
             "children": [
                 ("loans_to_customers", "Loans to Customers"),
@@ -244,13 +229,8 @@ def create_app(db_path: str | None = None) -> Flask:
             ],
             "compute_other": True,
         },
-        "nii_ytd": {
-            "children": [
-                ("interest_income_ytd", "Interest Income"),
-                ("interest_expense_ytd", "Interest Expense"),
-            ],
-            "compute_other": False,
-        },
+        # nii_ytd drill-down removed — Interest Income/Expense are gross
+        # figures that don't net to NII (different scope)
     }
 
     @app.route("/api/metrics/drilldown")
