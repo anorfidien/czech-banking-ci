@@ -283,7 +283,7 @@ def create_app(db_path: str | None = None) -> Flask:
         result = {}
         for k, v in DRILLDOWNS.items():
             if v.get("custom") == "loans":
-                result[k] = ["Mortgages", "Other Retail", "Commercial", "Other"]
+                result[k] = ["Mortgages", "Other Retail", "Corporate", "Other"]
             else:
                 result[k] = [c[1] for c in v["children"]]
         return jsonify(result)
@@ -328,7 +328,7 @@ def _build_loans_drilldown(db: Database, comp: str) -> list[dict]:
         other_retail = r - m
         if other_retail > 0.5:
             result.append({"series_id": "other_retail", "series_name": "Other Retail", "date": date, "value": other_retail, "unit": "mio CZK", "competitor_id": comp})
-        result.append({"series_id": "commercial", "series_name": "Commercial", "date": date, "value": c, "unit": "mio CZK", "competitor_id": comp})
+        result.append({"series_id": "commercial", "series_name": "Corporate", "date": date, "value": c, "unit": "mio CZK", "competitor_id": comp})
         other = t - r - c
         if abs(other) > 0.5:
             result.append({"series_id": "other", "series_name": "Other", "date": date, "value": other, "unit": "mio CZK", "competitor_id": comp})
