@@ -13,6 +13,7 @@ sources:
   - https://www.csob.cz/portal/firmy
   - https://www.csob.cz/portal/o-csob
   - https://www.csob.cz/portal/lide/sazebniky-a-uroky
+  press_url: https://www.csob.cz/csob/servis-pro-media/tiskove-zpravy
 monitoring:
   priority: high
 aliases:

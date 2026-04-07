@@ -13,6 +13,7 @@ sources:
   - https://www.rb.cz/firmy
   - https://www.rb.cz/o-nas
   - https://www.rb.cz/sazebnik
+  press_url: https://www.rb.cz/informacni-servis/pro-media/tiskove-zpravy
 monitoring:
   priority: medium
 aliases:

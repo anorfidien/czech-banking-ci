@@ -7,6 +7,7 @@ sources:
   - https://www.revolut.com/cs-CZ/
   - https://www.revolut.com/cs-CZ/pricing/
   - https://www.revolut.com/cs-CZ/business/
+  press_url: https://www.revolut.com/cs-CZ/news/
 monitoring:
   priority: medium
 aliases:

@@ -13,6 +13,7 @@ sources:
   - https://www.kb.cz/cs/firmy-a-podnikatele
   - https://www.kb.cz/cs/o-bance
   - https://www.kb.cz/cs/sazebniky
+  press_url: https://www.kb.cz/cs/o-bance/tiskove-zpravy
 monitoring:
   priority: high
 aliases:

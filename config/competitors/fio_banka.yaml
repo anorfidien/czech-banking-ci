@@ -11,6 +11,7 @@ sources:
   - https://www.fio.cz/
   - https://www.fio.cz/o-nas
   - https://www.fio.cz/bankovni-sluzby/sazebnik
+  press_url: https://www.fio.cz/o-nas/media/tiskove-zpravy
 monitoring:
   priority: medium
 aliases:

@@ -88,25 +88,101 @@ class NewsCollector(BaseCollector):
         return matched
 
     def collect(self, competitor_id: str) -> list[Signal]:
+        config = self._load_competitor_config(competitor_id)
         signals = []
 
-        # Scan industry feeds (ČNB, HN, E15, Kurzy, Měšec, Patria, Roklen24, ČTK)
-        # Only collect articles that mention this competitor
+        # 1. Scan industry feeds (ČNB, HN, E15, Kurzy, Měšec, Patria, Roklen24, ČTK)
         for feed in self._load_industry_feeds():
             feed_signals = self._collect_feed(
-                competitor_id=None,  # will be matched
+                competitor_id=None,
                 rss_url=feed["url"],
                 feed_name=feed["name"],
                 feed_category=feed.get("category", ""),
                 feed_priority=feed.get("priority", "medium"),
             )
             for sig in feed_signals:
-                # Match to this specific competitor
                 text = f"{sig.title} {sig.content}"
                 if competitor_id in self._match_competitors(text):
                     sig.competitor_id = competitor_id
                     signals.append(sig)
 
+        # 2. Scrape bank's own press page if configured
+        press_url = config.get("sources", {}).get("press_url")
+        if press_url:
+            signals.extend(self._scrape_press_page(competitor_id, press_url, config["name"]))
+
+        return signals
+
+    def _scrape_press_page(self, competitor_id: str, url: str, bank_name: str) -> list[Signal]:
+        """Scrape press releases from a bank's own press/news page."""
+        try:
+            resp = self._fetch(url)
+        except CollectorError:
+            logger.warning("Failed to fetch press page: %s", url)
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        # Remove navigation chrome
+        for tag in soup(["nav", "footer", "header", "script", "style", "noscript"]):
+            tag.decompose()
+
+        signals = []
+        seen = set()
+
+        # Find article-like links: <a> with substantial text inside h2/h3/h4/h5/h6 or with long text
+        for a in soup.select("a[href]"):
+            text = a.get_text(strip=True)
+            href = a.get("href", "")
+
+            if not text or len(text) < 20 or len(text) > 250:
+                continue
+            if not href or href.startswith("#") or href.startswith("javascript"):
+                continue
+
+            # Must look like an article link (not navigation)
+            parent_tag = a.parent.name if a.parent else ""
+            is_heading = parent_tag in ("h1", "h2", "h3", "h4", "h5", "h6")
+            has_press_kw = any(kw in href.lower() for kw in [
+                "zprav", "press", "news", "blog", "clanek", "article",
+                "2024", "2025", "2026", "detail", "post",
+            ])
+
+            if not is_heading and not has_press_kw:
+                continue
+
+            # Normalize URL
+            if href.startswith("/"):
+                from urllib.parse import urlparse
+                parsed = urlparse(url)
+                href = f"{parsed.scheme}://{parsed.netloc}{href}"
+
+            # Dedup by title
+            title_key = text.lower().strip()
+            if title_key in seen:
+                continue
+            seen.add(title_key)
+
+            score, tags, reason = self._analyze_article(text, "")
+            tags.append(f"src:press:{bank_name}")
+
+            signals.append(Signal(
+                competitor_id=competitor_id,
+                source=self.name,
+                signal_type="press_release",
+                title=text,
+                content=f"Press release from {bank_name}",
+                url=href,
+                severity=score,
+                tags=tags,
+                metadata={
+                    "feed_name": f"press:{bank_name}",
+                    "feed_url": url,
+                    "feed_category": "press",
+                    "priority_reason": reason,
+                },
+            ))
+
+        logger.info("Found %d press releases from %s", len(signals), bank_name)
         return signals
 
     def _collect_feed(

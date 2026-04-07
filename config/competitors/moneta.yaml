@@ -13,6 +13,7 @@ sources:
   - https://www.moneta.cz/podnikatele-a-firmy
   - https://www.moneta.cz/o-nas
   - https://www.moneta.cz/sazebniky-a-dokumenty
+  press_url: https://www.moneta.cz/servis-pro-media/tiskove-zpravy
 monitoring:
   priority: medium
 aliases:

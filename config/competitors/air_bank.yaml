@@ -12,6 +12,7 @@ sources:
   - https://www.airbank.cz/o-air-bank/
   - https://www.airbank.cz/sazebnik/
   - https://www.airbank.cz/kariera/
+  press_url: https://www.airbank.cz/pro-novinare/
 monitoring:
   priority: medium
 aliases:

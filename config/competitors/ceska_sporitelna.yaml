@@ -19,5 +19,6 @@ sources:
   - https://www.csas.cz/cs/firmy-a-podnikatele
   - https://www.csas.cz/cs/o-nas
   - https://www.csas.cz/cs/osobni-finance/sazebnik
+  press_url: https://www.csas.cz/cs/o-nas/pro-media
 monitoring:
   priority: high

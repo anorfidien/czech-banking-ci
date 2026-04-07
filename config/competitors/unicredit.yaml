@@ -13,6 +13,7 @@ sources:
   - https://www.unicreditbank.cz/cs/firmy.html
   - https://www.unicreditbank.cz/cs/o-bance.html
   - https://www.unicreditbank.cz/cs/sazebniky.html
+  press_url: https://www.unicreditbank.cz/cs/o-bance/tiskove-centrum/tiskove-zpravy.html
 monitoring:
   priority: medium
 aliases:

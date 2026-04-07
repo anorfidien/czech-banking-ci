@@ -3,10 +3,11 @@ name: Partners Bank
 parent_group: Partners Financial Services
 tier: 3
 sources:
-  ares_ico: '09727094'
+  ares_ico: 09727094
   website_urls:
   - https://www.partnersbank.cz/
   - https://www.partnersbank.cz/o-nas
+  press_url: https://www.partnersbanka.cz/blog
 monitoring:
   priority: medium
 aliases:
